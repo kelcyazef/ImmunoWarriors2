@@ -343,21 +343,44 @@ class LaboratoireRecherche with ChangeNotifier {
   }
   
   /// Cancel current research
-  bool cancelResearch() {
-    if (_currentResearch != null) {
-      // Revert to available status
-      final techIndex = _technologies.indexWhere((tech) => tech.id == _currentResearch!.id);
-      if (techIndex >= 0) {
-        _technologies[techIndex].status = ResearchStatus.available;
-        _technologies[techIndex].startTime = null;
-        _technologies[techIndex].completionTime = null;
+  void cancelResearch() {
+    final currentResearch = technologies.firstWhere(
+      (tech) => tech.status == ResearchStatus.inProgress,
+      orElse: () => technologies[0],
+    );
+    
+    if (currentResearch.status == ResearchStatus.inProgress) {
+      currentResearch.status = ResearchStatus.available;
+      currentResearch.startTime = null;
+      currentResearch.completionTime = null;
+      notifyListeners();
+    }
+  }
+  
+  /// Cancel all research and reset research progress
+  void cancelAllResearch() {
+    // First check for any active research and cancel it
+    final activeResearch = technologies.where((tech) => tech.status == ResearchStatus.inProgress).toList();
+    for (var tech in activeResearch) {
+      tech.status = ResearchStatus.available;
+      tech.startTime = null;
+      tech.completionTime = null;
+    }
+    
+    // Then reset status of all completed technologies to available
+    // except for the most basic ones that should remain available by default
+    for (var tech in technologies) {
+      if (tech.status == ResearchStatus.completed && 
+          tech.prerequisites.isNotEmpty) {
+        tech.status = ResearchStatus.available;
       }
       
-      _currentResearch = null;
-      notifyListeners();
-      return true;
+      // Make sure any time data is cleared
+      tech.startTime = null;
+      tech.completionTime = null;
     }
-    return false;
+    
+    notifyListeners();
   }
   
   /// Get the effects of all completed research

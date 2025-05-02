@@ -167,12 +167,18 @@ class _BioForgeScreenState extends ConsumerState<BioForgeScreen> {
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
+                  showCursor: true, // Make cursor visible
+                  cursorColor: Theme.of(context).primaryColor, // Use theme color for cursor
                   decoration: InputDecoration(
                     hintText: 'Entrez un nom pour votre base virale',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     prefixIcon: const Icon(Icons.edit),
+                    focusedBorder: OutlineInputBorder( // Highlight when focused
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                    ),
                   ),
                   initialValue: _baseName,
                   onChanged: (value) {

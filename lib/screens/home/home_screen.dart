@@ -60,13 +60,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _resetGameData() async {
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) return;
+      final userEmail = FirebaseAuth.instance.currentUser?.email;
+      if (userId == null || userEmail == null) return;
       
       // Get services and providers
       final firestoreService = ref.read(firestoreServiceProvider);
       final resources = ref.read(resourcesProvider);
       final memoireImmunitaire = ref.read(memoireImmunitaireProvider);
+      final laboratoireRecherche = ref.read(laboratoireRechercheProvider);
       
+      // 1. Reset all in-memory app state
       // Reset resources to default values
       resources.updateEnergie(100);
       resources.updateBiomateriaux(50);
@@ -77,26 +80,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Reset immune memory signatures
       memoireImmunitaire.clearAllSignatures();
       
-      // Reset local storage
+      // Reset research progress
+      laboratoireRecherche.cancelAllResearch();
+      
+      // 2. Reset local storage completely
       await GameStateStorage.resetAllData();
       
-      // Create default user profile data
-      final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'unknown@email.com';
-      final defaultUserProfile = UserProfile(
-        id: userId,
-        displayName: userEmail.split('@')[0],
-        currentEnergie: 100,
-        currentBiomateriaux: 50,
-        immuneMemorySignatures: const [],
-        researchPoints: 0,
-        victories: 0,
-        lastLogin: DateTime.now(),
-      );
+      // 3. Reset all Firestore data comprehensively
+      // This will delete all battles, viral bases, and reset the user profile
+      await firestoreService.resetUserData(userId, userEmail);
       
-      // Update Firestore with reset data
-      await firestoreService.updateUserProfile(userId, defaultUserProfile.toMap());
+      // 4. Force refresh providers that might be watching Firestore
+      // We can safely ignore the AsyncValue results since we just want to trigger a refresh
+      final _ = ref.refresh(userProfileProvider);
+      final __ = ref.refresh(battleHistoryProvider);
       
-      print('Game data reset successfully for user: $userId');
+      print('Game data completely reset for user: $userId (both locally and online)');
     } catch (e) {
       print('Error resetting game data: $e');
     }

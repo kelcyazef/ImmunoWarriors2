@@ -130,6 +130,56 @@ class FirestoreService {
         .add(battleData);
   }
   
+  /// Completely reset a user's data in Firestore (profile data, battles, bases, etc.)
+  Future<void> resetUserData(String userId, String email) async {
+    
+    try {
+      // 1. Delete all battles in the subcollection
+      final battles = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('battles')
+          .get();
+      
+      for (var doc in battles.docs) {
+        await doc.reference.delete();
+      }
+      
+      // 2. Delete any viral bases owned by this user
+      final bases = await _firestore
+          .collection('viralBases')
+          .where('ownerId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in bases.docs) {
+        await doc.reference.delete();
+      }
+      
+      // 3. Reset the user profile to default values
+      final defaultUserProfile = UserProfile(
+        id: userId,
+        displayName: email.split('@')[0],
+        currentEnergie: 100,
+        currentBiomateriaux: 50,
+        immuneMemorySignatures: const [],
+        researchPoints: 0,
+        victories: 0,
+        lastLogin: DateTime.now(),
+      );
+      
+      // Update user profile with default values
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .set(defaultUserProfile.toMap());
+      
+      print('User data completely reset in Firestore for user: $userId');
+    } catch (e) {
+      print('Error resetting user data in Firestore: $e');
+      rethrow;
+    }
+  }
+  
   // Add a pathogen signature to the user's immune memory
   Future<void> addPathogenSignature(String userId, String pathogenName) async {
     // First check if the signature already exists to avoid duplicates

@@ -105,7 +105,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       backgroundColor: navyBlue,
       appBar: AppBar(
-        title: const Text('Sign In'),
+        title: Text(_isSignUp ? 'Create Account' : 'Sign In'),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -139,13 +139,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Sign In',
+                                _isSignUp ? 'Create Account' : 'Sign In',
                                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                   color: navyBlue,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 24,
                                 ),
                               ),
+
                             ],
                           ),
                         ),
@@ -168,6 +169,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
+                              showCursor: true, // Make cursor visible
+                              cursorColor: navyBlue, // Set cursor color
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 hintText: 'Your email address',
@@ -200,6 +203,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: TextFormField(
                               controller: _passwordController,
                               obscureText: true,
+                              showCursor: true, // Make cursor visible
+                              cursorColor: navyBlue, // Set cursor color
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 hintText: 'Your password',
@@ -241,22 +246,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 width: 22,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            : Text(_isSignUp ? 'Create Account' : 'Sign In', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () => setState(() => _isSignUp = !_isSignUp),
+                        onPressed: !_isLoading
+                            ? () {
+                                setState(() {
+                                  _errorMessage = null;
+                                  _isSignUp = !_isSignUp;
+                                });
+                              }
+                            : null,
                         child: Text(
-                          'Don\'t have an account? Sign Up',
-                          style: TextStyle(
-                            color: const Color(0xFF4FD1C5),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
+                          _isSignUp ? 'Sign In' : 'Create Account',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: navyBlue),
                         ),
                       ),
                     ),
@@ -264,16 +270,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-                // Edit button properly positioned in top right
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFF4FD1C5),
-                    child: const Icon(Icons.edit, color: Colors.white, size: 20),
-                  ),
-                ),
+
               ],
             ),
           ),
