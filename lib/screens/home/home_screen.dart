@@ -52,7 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // Sync local state to Firestore
   Future<void> _syncDataToFirestore() async {
     final dataSyncService = ref.read(dataSyncServiceProvider);
-    await dataSyncService.syncUserDataToFirestore();
+    await dataSyncService.syncToFirestore();
   }
 
   @override

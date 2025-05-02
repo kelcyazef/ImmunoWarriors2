@@ -6,16 +6,25 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'providers/auth_providers.dart';
 
+import 'services/data_sync_service.dart';
+import 'services/game_state_storage.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: MyApp()));
+  
+  // Initialize Hive for local storage
+  await GameStateStorage.initialize();
+  
+  runApp(const ProviderScope(child: ImmunoWarriorsApp()));
 }
 
-class MyApp extends ConsumerWidget {
-  const MyApp({super.key});
+class ImmunoWarriorsApp extends ConsumerWidget {
+  const ImmunoWarriorsApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -164,11 +173,46 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize data sync when app starts
+    _initializeDataSync();
+  }
+  
+  Future<void> _initializeDataSync() async {
+    // Get data sync service
+    final dataSyncService = ref.read(dataSyncServiceProvider);
+    
+    // Load from local storage immediately
+    await dataSyncService.loadFromLocalStorage();
+    
+    // Listen to auth state changes for syncing with Firestore
+    ref.listen(authStateProvider, (previous, next) {
+      next.whenData((user) {
+        if (user != null) {
+          // User is logged in, perform full sync
+          _syncUserData();
+        }
+      });
+    });
+  }
+  
+  Future<void> _syncUserData() async {
+    final dataSyncService = ref.read(dataSyncServiceProvider);
+    await dataSyncService.performFullSync();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
     return authState.when(

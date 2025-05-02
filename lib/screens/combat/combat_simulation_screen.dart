@@ -743,9 +743,9 @@ class CombatResultScreen extends ConsumerWidget {
                   await firestoreService.addPathogenSignature(userId, pathogen.name);
                 }
                 
-                // Perform a full data sync to ensure everything is saved
-                await dataSyncService.syncUserDataToFirestore();
-                print('Combat results synced to Firestore: Energy=${resources.currentEnergie}, Research Points gained=${combatResult.researchPointsGained}');
+                // Save data after combat and ensure everything is synced
+                await dataSyncService.saveAfterEvent();
+                print('Combat results saved and synced: Energy=${resources.currentEnergie}, Research Points gained=${combatResult.researchPointsGained}');
               }
               
               // Return to home
