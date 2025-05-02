@@ -7,6 +7,8 @@ import '../../providers/game_providers.dart';
 import '../../providers/firestore_providers.dart';
 import '../../providers/auth_providers.dart';
 import '../../services/data_sync_service.dart';
+import 'microscope_background.dart';
+import 'cell_visualizations.dart';
 
 /// Screen for visualizing and simulating combat
 class CombatSimulationScreen extends ConsumerStatefulWidget {
@@ -111,7 +113,6 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     final combatManager = ref.watch(combatManagerProvider);
 
     return Scaffold(
@@ -128,149 +129,216 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
       ),
       body: Column(
         children: [
-          // Combat visualization
+          // Battle visualization with microscopic theme
           Expanded(
             flex: 3,
             child: Card(
-              color: Colors.white,
               elevation: 4,
               margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Combat title and status
-                    Text(
-                      'Combat contre ${widget.enemyBaseName}',
-                      style: textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      _isSimulationComplete
-                          ? _combatResult?.playerVictory == true
-                              ? 'VICTOIRE !'
-                              : 'DÉFAITE...'
-                          : 'Tour ${combatManager.currentTurn}',
-                      style: TextStyle(
-                        color: _isSimulationComplete
-                            ? _combatResult?.playerVictory == true
-                                ? Colors.green
-                                : Colors.red
-                            : Colors.grey[600],
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.biotech, size: 16, color: Color(0xFF1A237E)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Simulation de Combat en Cours',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF1A237E),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    const Divider(),
-
-                    // Combat visualization area
                     Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Stack(
-                            children: [
-                              // Player side
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: constraints.maxWidth / 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'ÉQUIPE IMMUNITAIRE',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: MicroscopeBackground(
+                            backgroundColor: const Color(0xFFE1F5FE), // Light blue background
+                            showCircularView: true,
+                            child: Stack(
+                              children: [
+                                // Combat field with units
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    children: [
+                                      // Player units
+                                      Column(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                                            ),
+                                            child: const Text(
+                                              'ÉQUIPE IMMUNITAIRE',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: combatManager.playerUnits.map((unit) {
+                                              // Check if this is the current active unit
+                                              final isActive = combatManager.isPlayerTurn;
+                                              return _buildUnitIcon(context, unit, true, isActive);
+                                            }).toList(),
+                                          ),
+                                          if (combatManager.playerUnits.isEmpty)
+                                            const Text('Aucune unité restante',
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                        ],
                                       ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ...combatManager.playerUnits.map(
-                                      (unit) => _buildUnitIcon(
-                                        context,
-                                        unit,
-                                        true,
-                                        combatManager.isPlayerTurn,
+                                      
+                                      const SizedBox(height: 20),
+                                      
+                                      // VS divider with microscope-themed element
+                                      Row(
+                                        children: [
+                                          Expanded(child: Divider(color: Colors.blue.withOpacity(0.3), thickness: 1.5)),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.blue.withOpacity(0.3))
+                                            ),
+                                            child: const Text('VS', 
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.indigo,
+                                              )
+                                            ),
+                                          ),
+                                          Expanded(child: Divider(color: Colors.red.withOpacity(0.3), thickness: 1.5)),
+                                        ],
                                       ),
-                                    ),
-                                    if (combatManager.playerUnits.isEmpty)
-                                      const Text('Aucune unité restante'),
-                                  ],
+                                      
+                                      const SizedBox(height: 20),
+                                      
+                                      // Enemy units
+                                      Column(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: Colors.red.withOpacity(0.5)),
+                                            ),
+                                            child: const Text(
+                                              'PATHOGÈNES HOSTILES',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: combatManager.enemyUnits.map((unit) {
+                                              // Check if this is the current active unit
+                                              final isActive = !combatManager.isPlayerTurn;
+                                              return _buildUnitIcon(context, unit, false, isActive);
+                                            }).toList(),
+                                          ),
+                                          if (combatManager.enemyUnits.isEmpty)
+                                            const Text('Aucune unité restante',
+                                              style: TextStyle(color: Colors.white),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-
-                              // Center divider
-                              Positioned(
-                                left: constraints.maxWidth / 2 - 1,
-                                top: 20,
-                                bottom: 20,
-                                width: 2,
-                                child: Container(
-                                  color: Colors.grey[300],
-                                ),
-                              ),
-
-                              // Enemy side
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: constraints.maxWidth / 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'PATHOGÈNES HOSTILES',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ...combatManager.enemyUnits.map(
-                                      (unit) => _buildUnitIcon(
-                                        context,
-                                        unit,
-                                        false,
-                                        !combatManager.isPlayerTurn,
-                                      ),
-                                    ),
-                                    if (combatManager.enemyUnits.isEmpty)
-                                      const Text('Aucune unité restante'),
-                                  ],
-                                ),
-                              ),
-
-                              if (_isSimulationComplete)
-                                Positioned.fill(
+                                
+                                // Microscope overlay elements
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
                                   child: Container(
-                                    color: Colors.black.withOpacity(0.5),
-                                    child: Center(
-                                      child: Text(
-                                        _combatResult?.playerVictory == true
-                                            ? 'VICTOIRE !'
-                                            : 'DÉFAITE...',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.7),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(8),
+                                        bottomRight: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Microscope View: 400x',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontFamily: 'monospace',
                                       ),
                                     ),
                                   ),
                                 ),
-                            ],
-                          );
-                        },
+                                
+                                // Combat status overlay
+                                if (_isSimulationComplete)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.black.withOpacity(0.7),
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                          decoration: BoxDecoration(
+                                            color: _combatResult?.playerVictory == true 
+                                                ? Colors.green.withOpacity(0.8)
+                                                : Colors.red.withOpacity(0.8),
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black26,
+                                                blurRadius: 10,
+                                                spreadRadius: 2,
+                                              )
+                                            ]
+                                          ),
+                                          child: Text(
+                                            _combatResult?.playerVictory == true
+                                                ? 'VICTOIRE !'
+                                                : 'DÉFAITE...',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -279,7 +347,7 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
             ),
           ),
 
-          // Combat log
+          // Combat log with lab report theme
           Expanded(
             flex: 2,
             child: Card(
@@ -291,21 +359,27 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: colorScheme.primary,
+                      color: const Color(0xFF1A237E), // Dark blue for microscope theme
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         topRight: Radius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      'Journal de Combat',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.science, color: Colors.white70, size: 16),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Journal de Combat',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(
@@ -339,131 +413,81 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
     bool isActive,
   ) {
     final healthPercentage = unit.healthPoints / unit.maxHealthPoints;
-    final baseColor = isPlayerUnit ? Colors.blue : Colors.red;
     
-    // Icon based on unit type
-    IconData unitIcon;
-    if (unit.isAnticorps) {
-      final antibody = unit.unit as Anticorps;
-      if (antibody is AnticorpsOffensif) {
-        unitIcon = Icons.security;
-      } else if (antibody is AnticorpsDefensif) {
-        unitIcon = Icons.healing;
-      } else if (antibody is AnticorpsMarqueur) {
-        unitIcon = Icons.track_changes;
-      } else {
-        unitIcon = Icons.shield;
-      }
-    } else {
-      final pathogen = unit.unit as AgentPathogene;
-      if (pathogen is Virus) {
-        unitIcon = Icons.bug_report;
-      } else if (pathogen is Bacterie) {
-        unitIcon = Icons.coronavirus;
-      } else if (pathogen is Champignon) {
-        unitIcon = Icons.spa;
-      } else {
-        unitIcon = Icons.help;
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: isActive ? baseColor.withOpacity(0.2) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: baseColor.withOpacity(0.5),
-          width: 1.5,
+    return Stack(
+      children: [
+        // Microscopic cell visualization
+        CellVisualization(
+          unit: unit,
+          isPlayerUnit: isPlayerUnit,
+          isActive: isActive,
+          size: 60,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              CircularProgressIndicator(
-                value: healthPercentage,
-                backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  healthPercentage > 0.6
-                      ? Colors.green
-                      : healthPercentage > 0.3
-                          ? Colors.orange
-                          : Colors.red,
-                ),
-                strokeWidth: 3,
-              ),
-              Icon(
-                unitIcon,
-                color: baseColor,
-                size: 20,
-              ),
-            ],
+        
+        // Health bar below the cell
+        Positioned(
+          bottom: 0,
+          left: 5,
+          right: 5,
+          child: HealthBar(
+            healthPercentage: healthPercentage,
+            color: _getHealthColor(healthPercentage),
+            width: 50,
+            height: 5,
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  unit.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'PV: ${unit.healthPoints}/${unit.maxHealthPoints}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLogEntry(BuildContext context, CombatLogEntry log) {
-    final bool isPlayerAction = log.actorId != null &&
-        widget.playerAntibodies.any((a) => a.id == log.actorId);
-    
-    final Color textColor = log.isSpecialAction
-        ? Colors.purple
-        : isPlayerAction
-            ? Colors.blue[700]!
-            : Colors.red[700]!;
+  Color _getHealthColor(double healthPercentage) {
+    if (healthPercentage > 0.6) {
+      return Colors.green;
+    } else if (healthPercentage > 0.3) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
+    }
+  }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _buildLogEntry(BuildContext context, CombatLogEntry entry) {
+    Color textColor = Colors.black87;
+    Color backgroundColor = Colors.transparent;
+    IconData? icon;
+    
+    if (entry.isSpecialAction) {
+      backgroundColor = Colors.amber.withOpacity(0.2);
+      textColor = Colors.amber.shade900;
+      icon = Icons.flash_on;
+    } else if (entry.damage != null && entry.damage! > 0) {
+      backgroundColor = Colors.red.withOpacity(0.1);
+      textColor = Colors.red.shade800;
+      icon = Icons.dangerous;
+    } else if (entry.healing != null && entry.healing! > 0) {
+      backgroundColor = Colors.green.withOpacity(0.1);
+      textColor = Colors.green.shade800;
+      icon = Icons.healing;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: backgroundColor.withAlpha(80)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: 8),
+          if (icon != null) ...[  
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 6),
+          ],
           Expanded(
             child: Text(
-              log.message,
-              style: TextStyle(
-                fontSize: 12,
-                color: textColor,
-                fontWeight: log.isSpecialAction ? FontWeight.bold : FontWeight.normal,
-              ),
+              entry.message,
+              style: TextStyle(color: textColor),
             ),
           ),
         ],

@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
+import '../../models/notification.dart';
 import '../../providers/firestore_providers.dart';
 import '../../providers/game_providers.dart';
+import '../../providers/notification_providers.dart';
 import '../../services/data_sync_service.dart';
 import '../../services/game_state_storage.dart';
 import '../laboratory/laboratory_screen.dart';
@@ -54,6 +56,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _syncDataToFirestore() async {
     final dataSyncService = ref.read(dataSyncServiceProvider);
     await dataSyncService.syncToFirestore();
+  }
+  
+  /// Build a notification item widget
+  Widget _buildNotificationItem(
+    BuildContext context, 
+    GameNotification notification, 
+  ) {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: InkWell(
+        onTap: () {
+          // Mark as read when tapped
+          if (!notification.isRead && user != null) {
+            ref.read(firestoreServiceProvider).markNotificationAsRead(user.uid, notification.id);
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: notification.isRead ? Colors.white : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Notification type icon
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: notification.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(notification.icon, color: notification.color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              // Notification content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      notification.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      notification.message,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTimestamp(notification.timestamp),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Format a timestamp for display
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+    
+    if (difference.inDays > 7) {
+      // Format as date if older than a week
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    } else if (difference.inDays > 0) {
+      // Format as days ago
+      return 'il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
+    } else if (difference.inHours > 0) {
+      // Format as hours ago
+      return 'il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
+    } else if (difference.inMinutes > 0) {
+      // Format as minutes ago
+      return 'il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+    } else {
+      // Just now
+      return 'à l\'instant';
+    }
   }
   
   // Reset game data to default values (both locally and in Firestore)
@@ -586,15 +684,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.notifications, color: Colors.orange, size: 20),
-                    const SizedBox(width: 12),
-                    Text('Alertes / Notifications',
-                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        const Icon(Icons.notifications, color: Colors.orange, size: 20),
+                        const SizedBox(width: 12),
+                        Text('Alertes / Notifications',
+                            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    // Notification count badge
+                    Consumer(builder: (context, ref, _) {
+                      final unreadCount = ref.watch(unreadNotificationsCountProvider);
+                      if (unreadCount > 0) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$unreadCount',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Aucune nouvelle alerte.'),
+                // Notifications stream
+                Consumer(builder: (context, ref, _) {
+                  final notificationsAsync = ref.watch(notificationsProvider);
+                  final firestoreService = ref.read(firestoreServiceProvider);
+                  
+                  return notificationsAsync.when(
+                    data: (notifications) {
+                      if (notifications.isEmpty) {
+                        return const Text('Aucune nouvelle alerte.');
+                      }
+                      
+                      // Show the most recent 3 notifications
+                      return Column(
+                        children: [
+                          ...notifications.take(3).map((notification) => 
+                            _buildNotificationItem(context, notification)
+                          ),
+                          if (notifications.length > 3) ...[  
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () {
+                                // Show all notifications in a full-screen dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Toutes les notifications'),
+                                    content: SizedBox(
+                                      width: double.maxFinite,
+                                      child: ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount: notifications.length,
+                                        itemBuilder: (context, index) => _buildNotificationItem(
+                                          context, notifications[index]
+                                        ),
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(),
+                                        child: const Text('FERMER'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          final user = FirebaseAuth.instance.currentUser;
+                                          if (user != null) {
+                                            await firestoreService.markAllNotificationsAsRead(user.uid);
+                                            Navigator.of(context).pop();
+                                          }
+                                        },
+                                        child: const Text('TOUT MARQUER COMME LU'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: const Text('Voir toutes les notifications'),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, stack) => Text('Erreur: $error'),
+                  );
+                }),
               ],
             ),
           ),

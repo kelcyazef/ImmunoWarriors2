@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_profile.dart';
+import '../models/notification.dart';
 import 'dart:math';
 
 class FirestoreService {
@@ -128,6 +129,28 @@ class FirestoreService {
         .doc(userId)
         .collection('battles')
         .add(battleData);
+        
+    // Create a notification about the battle
+    if (victory) {
+      await createNotification(
+        userId: userId,
+        notification: NotificationFactory.createRewardNotification(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          energyAmount: resourcesGained,
+          biomaterialsAmount: resourcesGained ~/ 2,  // Assuming half the resources are biomaterials
+          source: 'battle with $enemyBaseName',
+        ),
+      );
+    } else {
+      await createNotification(
+        userId: userId,
+        notification: NotificationFactory.createSystemNotification(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: 'Battle Lost',
+          message: 'Your forces were defeated in battle against $enemyBaseName. Regroup and try again!',
+        ),
+      );
+    }
   }
   
   /// Completely reset a user's data in Firestore (profile data, battles, bases, etc.)
@@ -155,7 +178,18 @@ class FirestoreService {
         await doc.reference.delete();
       }
       
-      // 3. Reset the user profile to default values
+      // 3. Delete all notifications
+      final notifications = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .get();
+      
+      for (var doc in notifications.docs) {
+        await doc.reference.delete();
+      }
+      
+      // 4. Reset the user profile to default values
       final defaultUserProfile = UserProfile(
         id: userId,
         displayName: email.split('@')[0],
@@ -172,6 +206,16 @@ class FirestoreService {
           .collection('users')
           .doc(userId)
           .set(defaultUserProfile.toMap());
+      
+      // Add a system notification about the reset
+      await createNotification(
+        userId: userId,
+        notification: NotificationFactory.createSystemNotification(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: 'Game Reset Complete',
+          message: 'Your game has been completely reset to default values. All progress has been cleared.',
+        ),
+      );
       
       print('User data completely reset in Firestore for user: $userId');
     } catch (e) {
@@ -215,6 +259,72 @@ class FirestoreService {
             return data;
           }).toList();
         });
+  }
+  
+  /// Get notifications for a user
+  Stream<List<GameNotification>> getNotifications(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .orderBy('timestamp', descending: true)
+        .limit(20) // Limit to most recent 20 notifications
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return GameNotification.fromMap(doc.data(), doc.id);
+          }).toList();
+        });
+  }
+  
+  /// Create a new notification
+  Future<void> createNotification({
+    required String userId,
+    required GameNotification notification,
+  }) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notification.id)
+        .set(notification.toMap());
+  }
+  
+  /// Mark a notification as read
+  Future<void> markNotificationAsRead(String userId, String notificationId) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+  
+  /// Mark all notifications as read
+  Future<void> markAllNotificationsAsRead(String userId) async {
+    final batch = _firestore.batch();
+    final notifications = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .get();
+        
+    for (var doc in notifications.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    
+    await batch.commit();
+  }
+  
+  /// Delete a notification
+  Future<void> deleteNotification(String userId, String notificationId) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
   }
   
   // Generate system bases when not enough user bases are available
