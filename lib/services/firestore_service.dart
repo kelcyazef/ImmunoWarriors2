@@ -6,21 +6,33 @@ class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Random _random = Random();
 
-  // Create a new user profile
+  // Create a new user profile with complete initialization
   Future<void> createUserProfile({
     required String userId,
     required String email,
   }) async {
+    // Create a complete user profile with default values
     final userProfile = UserProfile(
       id: userId,
       displayName: email.split('@')[0], // Simple display name from email
+      currentEnergie: 100,
+      currentBiomateriaux: 50,
+      immuneMemorySignatures: const [],
+      researchPoints: 0,
+      victories: 0,
       lastLogin: DateTime.now(),
     );
 
+    // Convert to map and make sure all fields are explicitly set
+    final userData = userProfile.toMap();
+    
+    // Create the user document with complete data
     await _firestore
         .collection('users')
         .doc(userId)
-        .set(userProfile.toMap());
+        .set(userData);
+        
+    print('New user profile created in Firestore: $userId');
   }
 
   // Get user profile stream

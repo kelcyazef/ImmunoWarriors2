@@ -21,35 +21,45 @@ class ArchivesScreen extends ConsumerWidget {
       'Champignon': Colors.amber[700],
     };
     
+    // Simplify pathogen name if too long
+    String displayName = name;
+    if (name.length > 20) {
+      final parts = name.split(' ');
+      displayName = parts.isNotEmpty ? parts.first : name.substring(0, 10);
+    }
+    
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: (typeColors[type] ?? Colors.purple[700])!.withOpacity(0.2),
-                  child: Icon(Icons.bug_report, size: 16, color: typeColors[type] ?? Colors.purple[700]),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    name,
-                    style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Chip(
-                  label: Text(type, style: const TextStyle(fontSize: 12)),
-                  backgroundColor: (typeColors[type] ?? Colors.purple[700])!.withOpacity(0.1),
-                  labelStyle: TextStyle(color: typeColors[type] ?? Colors.purple[700]),
-                ),
-              ],
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: (typeColors[type] ?? Colors.purple[700])!.withOpacity(0.2),
+              child: Icon(Icons.bug_report, size: 14, color: typeColors[type] ?? Colors.purple[700]),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                displayName,
+                style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: (typeColors[type] ?? Colors.purple[700])!.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                type,
+                style: TextStyle(fontSize: 10, color: typeColors[type] ?? Colors.purple[700]),
+              ),
             ),
           ],
         ),
@@ -189,8 +199,8 @@ class ArchivesScreen extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem(context, Icons.science, '${memoireImmunitaire.signatureCount}', 'Pathogènes\nDécouverts'),
-                _buildStatItem(context, Icons.military_tech, '${profile.victories ?? 0}', 'Victoires'),
-                _buildStatItem(context, Icons.biotech, '${profile.researchPoints ?? 0}', 'Points de\nRecherche'),
+                _buildStatItem(context, Icons.military_tech, '${profile?.victories ?? 0}', 'Victoires'),
+                _buildStatItem(context, Icons.biotech, '${profile?.researchPoints ?? 0}', 'Points de\nRecherche'),
               ],
             ),
           ],
@@ -253,23 +263,26 @@ class ArchivesScreen extends ConsumerWidget {
             
             // Grid of pathogen signatures
             if (memoireImmunitaire.signatureCount > 0)
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 2.5,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 3.0,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                  ),
+                  itemCount: memoireImmunitaire.signatureCount,
+                  itemBuilder: (context, index) {
+                    final signature = memoireImmunitaire.signatures[index];
+                    final pathogen = signature.pathogenName;
+                    final type = pathogen.contains('Virus') ? 'Virus' : 
+                                pathogen.contains('Staphylococcus') || pathogen.contains('E. Coli') ? 'Bacterie' : 'Champignon';
+                    return _buildSignatureCard(context, pathogen, type, textTheme);
+                  },
                 ),
-                itemCount: memoireImmunitaire.signatureCount,
-                itemBuilder: (context, index) {
-                  final signature = memoireImmunitaire.signatures[index];
-                  final pathogen = signature.pathogenName;
-                  final type = pathogen.contains('Virus') ? 'Virus' : 
-                              pathogen.contains('Staphylococcus') || pathogen.contains('E. Coli') ? 'Bacterie' : 'Champignon';
-                  return _buildSignatureCard(context, pathogen, type, textTheme);
-                },
               )
             else
               const Center(
@@ -311,7 +324,7 @@ class ArchivesScreen extends ConsumerWidget {
           return battleHistoryAsync.when(
             data: (battleHistory) {
               return ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 children: [
                   // Player stats section
                   _buildPlayerStatsSection(context, profile, memoireImmunitaire),

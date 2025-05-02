@@ -215,11 +215,17 @@ class MemoireImmunitaire with ChangeNotifier {
     return signature?.costReduction ?? 0.0;
   }
   
+  /// Clear all pathogen signatures from memory
+  void clearAllSignatures() {
+    _signatures.clear();
+    notifyListeners();
+  }
+  
   /// Convert to map for storage
   Map<String, dynamic> toMap() {
     return {
-      'signatures': _signatures.map((sig) => sig.toMap()).toList(),
       'researchPoints': _researchPoints,
+      'signatures': _signatures.map((s) => s.toMap()).toList(),
     };
   }
   

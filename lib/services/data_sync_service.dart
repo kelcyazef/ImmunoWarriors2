@@ -126,10 +126,17 @@ class DataSyncService {
   
   /// Save local state to Firestore
   Future<void> syncToFirestore() async {
-    await initialize();
+    final authState = ref.read(authStateProvider);
+    final currentUser = authState.value;
+    
+    // Check if user is logged in
+    if (currentUser == null) {
+      print('Cannot sync to Firestore: User not logged in');
+      return;
+    }
     
     if (_isSyncing) {
-      print('Already syncing, skipping duplicate request');
+      print('Sync already in progress, skipping');
       return;
     }
     
@@ -139,36 +146,42 @@ class DataSyncService {
       // First save to local storage
       await saveToLocalStorage();
       
-      // Check if user is authenticated
-      final authState = ref.read(authStateProvider);
+      // Get current app state
+      final resources = ref.read(resourcesProvider);
+      final memoireImmunitaire = ref.read(memoireImmunitaireProvider);
+      final signatures = memoireImmunitaire.signatures.map((sig) => sig.pathogenName).toList();
+      final victories = GameStateStorage.getVictories(); // Use storage victories count
+      
+      // Prepare user data
+      final userData = {
+        'currentEnergie': resources.currentEnergie,
+        'currentBiomateriaux': resources.currentBiomateriaux,
+        'immuneMemorySignatures': signatures,
+        'researchPoints': memoireImmunitaire.researchPoints,
+        'victories': victories,
+        'lastLogin': DateTime.now().toIso8601String(),
+      };
+      
       final firestoreService = ref.read(firestoreServiceProvider);
       
-      if (authState.value != null) {
-        final userId = authState.value!.uid;
-        
-        final resources = ref.read(resourcesProvider);
-        final memoireImmunitaire = ref.read(memoireImmunitaireProvider);
-        final victories = GameStateStorage.getVictories();
-        
-        // Get immune memory signatures
-        final signatures = memoireImmunitaire.signatures
-            .map((sig) => sig.pathogenName)
-            .where((name) => name.isNotEmpty)
-            .toList();
-        
-        // Update user profile with current values
-        final updateData = {
-          'currentEnergie': resources.currentEnergie,
-          'currentBiomateriaux': resources.currentBiomateriaux,
-          'researchPoints': memoireImmunitaire.researchPoints,
-          'immuneMemorySignatures': signatures,
-          'victories': victories,
-          'lastLogin': DateTime.now().toIso8601String(),
-        };
-        
-        await firestoreService.updateUserProfile(userId, updateData);
-        print('Game state synced to Firestore');
+      // Check if user document exists
+      final userProfile = await firestoreService.getUserProfileOnce(currentUser.uid);
+      
+      if (userProfile == null) {
+        // User document doesn't exist, create a new one with complete data
+        print('Creating new user document in Firestore');
+        await firestoreService.createUserProfile(
+          userId: currentUser.uid,
+          email: currentUser.email ?? 'unknown@email.com',
+        );
+        // Update with the current game state
+        await firestoreService.updateUserProfile(currentUser.uid, userData);
+      } else {
+        // User exists, just update the data
+        await firestoreService.updateUserProfile(currentUser.uid, userData);
       }
+      
+      print('Game state synced to Firestore');
     } catch (e) {
       print('Error syncing to Firestore: $e');
     } finally {

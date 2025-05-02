@@ -54,6 +54,21 @@ class GameStateStorage {
     await box.put(_lastSyncKey, timestamp.toIso8601String());
   }
   
+  /// Reset all game data to default values
+  static Future<void> resetAllData() async {
+    final box = Hive.box<dynamic>(_gameStateBoxName);
+    
+    // Reset all values to defaults
+    await box.put(_energieKey, 100);
+    await box.put(_biomateriauxKey, 50);
+    await box.put(_researchPointsKey, 0);
+    await box.put(_victoriesKey, 0);
+    await box.put(_signaturesKey, []);
+    await box.put(_lastSyncKey, DateTime.now().toIso8601String());
+    
+    print('All local game data reset to default values');
+  }
+  
   /// Get energie value from local storage
   static int getEnergie({int defaultValue = 100}) {
     final box = Hive.box<dynamic>(_gameStateBoxName);

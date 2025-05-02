@@ -6,6 +6,7 @@ import '../../models/user_profile.dart';
 import '../../providers/firestore_providers.dart';
 import '../../providers/game_providers.dart';
 import '../../services/data_sync_service.dart';
+import '../../services/game_state_storage.dart';
 import '../laboratory/laboratory_screen.dart';
 import '../bioforge/bioforge_screen.dart';
 import '../archives/archives_screen.dart';
@@ -54,6 +55,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dataSyncService = ref.read(dataSyncServiceProvider);
     await dataSyncService.syncToFirestore();
   }
+  
+  // Reset game data to default values (both locally and in Firestore)
+  Future<void> _resetGameData() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+      
+      // Get services and providers
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final resources = ref.read(resourcesProvider);
+      final memoireImmunitaire = ref.read(memoireImmunitaireProvider);
+      
+      // Reset resources to default values
+      resources.updateEnergie(100);
+      resources.updateBiomateriaux(50);
+      
+      // Reset research points
+      memoireImmunitaire.setResearchPoints(0);
+      
+      // Reset immune memory signatures
+      memoireImmunitaire.clearAllSignatures();
+      
+      // Reset local storage
+      await GameStateStorage.resetAllData();
+      
+      // Create default user profile data
+      final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'unknown@email.com';
+      final defaultUserProfile = UserProfile(
+        id: userId,
+        displayName: userEmail.split('@')[0],
+        currentEnergie: 100,
+        currentBiomateriaux: 50,
+        immuneMemorySignatures: const [],
+        researchPoints: 0,
+        victories: 0,
+        lastLogin: DateTime.now(),
+      );
+      
+      // Update Firestore with reset data
+      await firestoreService.updateUserProfile(userId, defaultUserProfile.toMap());
+      
+      print('Game data reset successfully for user: $userId');
+    } catch (e) {
+      print('Error resetting game data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +128,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle, color: Colors.white),
             onSelected: (value) async {
-              if (value == 'logout') await FirebaseAuth.instance.signOut();
+              if (value == 'logout') {
+                await FirebaseAuth.instance.signOut();
+              } else if (value == 'reset') {
+                // Show confirmation dialog
+                final shouldReset = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Reset Game Data'),
+                    content: const Text(
+                      'This will reset all your game progress including resources, research points, ' +
+                      'immune memory, and battle history to default values. This action cannot be undone.\n\n' +
+                      'Are you sure you want to reset your game?'
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('CANCEL'),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('RESET'),
+                      ),
+                    ],
+                  ),
+                ) ?? false;
+                
+                if (shouldReset) {
+                  await _resetGameData();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Game data reset successfully')),
+                    );
+                  }
+                }
+              }
             },
             itemBuilder: (_) => [
               PopupMenuItem(
@@ -90,6 +172,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   leading: const Icon(Icons.person),
                   title: Text(FirebaseAuth.instance.currentUser?.displayName ?? 'User'),
                   subtitle: Text(FirebaseAuth.instance.currentUser?.email ?? ''),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'reset',
+                child: ListTile(
+                  leading: Icon(Icons.refresh, color: Colors.orange),
+                  title: Text('Reset Game'),
+                  subtitle: Text('Reset all progress to default values'),
                 ),
               ),
               const PopupMenuItem(

@@ -194,16 +194,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     
     // Load from local storage immediately
     await dataSyncService.loadFromLocalStorage();
-    
-    // Listen to auth state changes for syncing with Firestore
-    ref.listen(authStateProvider, (previous, next) {
-      next.whenData((user) {
-        if (user != null) {
-          // User is logged in, perform full sync
-          _syncUserData();
-        }
-      });
-    });
   }
   
   Future<void> _syncUserData() async {
@@ -214,6 +204,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+    
+    // Listen to auth state changes for syncing with Firestore
+    // This is safe to do in build since it's using the watch pattern
+    ref.listen(authStateProvider, (previous, next) {
+      next.whenData((user) {
+        if (user != null) {
+          // User is logged in, perform full sync
+          _syncUserData();
+        }
+      });
+    });
 
     return authState.when(
       data: (user) => user != null ? const HomeScreen() : const LoginScreen(),
