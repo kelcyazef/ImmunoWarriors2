@@ -268,19 +268,22 @@ class ScannerScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate to combat preparation screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Préparation à l\'attaque contre ${base['name']}')),
-                    );
-                  },
-                  icon: const Icon(Icons.security, size: 18),
-                  label: const Text('Attaquer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: navyBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Navigate to combat preparation screen
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Préparation à l\'attaque contre ${base['name']}')),
+                      );
+                    },
+                    icon: const Icon(Icons.security, size: 18),
+                    label: const Text('Attaquer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: navyBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
                   ),
                 ),
               ],

@@ -19,17 +19,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
-  
-  // List of screens to show based on navigation
   final List<Widget?> _screens = [
-    null, // Dashboard is handled separately
-    const ScannerScreen(), // Scanner screen
+    null, // Dashboard
+    const ScannerScreen(),
     const BioForgeScreen(),
     const LaboratoryScreen(),
     const ArchivesScreen(),
-    null, // Combat preparation (will navigate to a different screen)
+    null, // Combat (handled via navigation)
   ];
-  
+
   @override
   Widget build(BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
@@ -39,30 +37,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
 
+    // If a non-dashboard tab is selected (except Attack), show that screen
+    if (_currentIndex > 0 && _currentIndex < 5) {
+      return _screens[_currentIndex]!;
+    }
+
+    // Always show Tactical Dashboard
     return Scaffold(
-      backgroundColor: Colors.white, // Use white background
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Tactical Dashboard'),
         backgroundColor: navyBlue,
         foregroundColor: Colors.white,
         elevation: 1,
         actions: [
-          // User profile button
           PopupMenuButton<String>(
             icon: const Icon(Icons.account_circle, color: Colors.white),
             onSelected: (value) async {
-              if (value == 'logout') {
-                await FirebaseAuth.instance.signOut();
-              }
+              if (value == 'logout') await FirebaseAuth.instance.signOut();
             },
-            itemBuilder: (context) => [
+            itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'profile',
                 child: ListTile(
                   leading: const Icon(Icons.person),
                   title: Text(FirebaseAuth.instance.currentUser?.displayName ?? 'User'),
-                  subtitle: Text(FirebaseAuth.instance.currentUser?.email ?? 'No email'),
-                  dense: true,
+                  subtitle: Text(FirebaseAuth.instance.currentUser?.email ?? ''),
                 ),
               ),
               const PopupMenuItem(
@@ -70,38 +70,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: ListTile(
                   leading: Icon(Icons.logout),
                   title: Text('Sign Out'),
-                  dense: true,
                 ),
               ),
             ],
           ),
         ],
       ),
-      body: _currentIndex == 0 ? userProfileAsync.when(
-        data: (userProfile) {
-          if (userProfile == null) {
-            return const Center(child: Text('User profile not found', style: TextStyle(color: Colors.white)));
-          }
-          return _buildDashboardContent(context, userProfile, resources, memoireImmunitaire, researchPoints);
-        },
+      body: userProfileAsync.when(
+        data: (userProfile) => userProfile == null
+            ? const Center(child: Text('User profile not found'))
+            : _buildDashboardContent(context, userProfile, resources, memoireImmunitaire, researchPoints),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Error loading profile: $error', style: TextStyle(color: Colors.white)),
-        ),
-      ) : _screens[_currentIndex],
-      // Bottom navigation with icons in the screenshot
+        error: (e, _) => Center(child: Text('Error: $e')),
+      ),
       bottomNavigationBar: Container(
         height: 70,
         padding: const EdgeInsets.only(top: 8),
-        color: navyBlue, // Navy blue from our color scheme
+        color: navyBlue,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildBottomNavItem(Icons.radar, 'Scanner', colorScheme, 0),
-            _buildBottomNavItem(Icons.biotech, 'Bio-Forge', colorScheme, 1),
-            _buildBottomNavItem(Icons.science, 'Labo R&D', colorScheme, 2),
-            _buildBottomNavItem(Icons.menu_book, 'Archives', colorScheme, 3),
-            _buildBottomNavItem(Icons.security, 'Attack', colorScheme, 4),
+            _buildBottomNavItem(Icons.radar, 'Scanner', colorScheme, 1),
+            _buildBottomNavItem(Icons.biotech, 'Bio-Forge', colorScheme, 2),
+            _buildBottomNavItem(Icons.science, 'Labo R&D', colorScheme, 3),
+            _buildBottomNavItem(Icons.menu_book, 'Archives', colorScheme, 4),
+            _buildBottomNavItem(Icons.security, 'Attack', colorScheme, 5),
           ],
         ),
       ),
@@ -109,23 +102,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBottomNavItem(IconData icon, String label, ColorScheme colorScheme, int index) {
-    final bool isSelected = _currentIndex == index;
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color for bottom nav
-    
     return InkWell(
       onTap: () {
-        if (index == 4) { // Attack button - navigate to combat screen
+        if (index == 5) {
           Navigator.push(
-            context, 
-            MaterialPageRoute(builder: (context) => const CombatPreparationScreen(
-              enemyBaseName: 'Enemy Base',
-              enemyPathogens: [],
-            ))
+            context,
+            MaterialPageRoute(
+              builder: (_) => const CombatPreparationScreen(
+                enemyBaseName: 'Enemy Base',
+                enemyPathogens: [],
+              ),
+            ),
           );
+          return;
         } else {
-          setState(() {
-            _currentIndex = index;
-          });
+          setState(() => _currentIndex = index);
         }
       },
       child: Column(
@@ -134,10 +125,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white : Colors.transparent,
+              color: Colors.transparent,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: isSelected ? navyBlue : Colors.white70, size: 20),
+            child: Icon(icon, color: Colors.white70, size: 20),
           ),
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
         ],
@@ -149,14 +140,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
-    
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       children: [
         // Dashboard Title Section
         Card(
           color: Colors.white,
-          elevation: 2,
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.only(bottom: 16),
           child: Padding(
@@ -190,44 +182,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
-        // User greeting with avatar
-        Container(
-          margin: const EdgeInsets.only(bottom: 24),
-          child: Row(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEDF2F7),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.shield, 
-                    color: navyBlue,
-                    size: 32,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Bienvenue, azefkelcy!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: navyBlue,
-                ),
-              ),
-            ],
-          ),
-        ),
 
         // Bio-Resources Card (First Card - as in screenshot)
         Card(
           color: Colors.white,
-          elevation: 2,
-          shadowColor: Colors.black.withOpacity(0.1),
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           margin: const EdgeInsets.only(bottom: 16),
           child: Column(
@@ -368,8 +328,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Immune Memory (Second Card - as in screenshot)
         Card(
           color: Colors.white,
-          elevation: 2,
-          shadowColor: Colors.black.withOpacity(0.1),
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           margin: const EdgeInsets.only(bottom: 16),
           child: Column(
@@ -553,28 +513,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget bottomNavItem(IconData icon, String label, ColorScheme colorScheme, {bool isSelected = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? colorScheme.secondary : Colors.white70,
-          size: 28,
-        ),
-        const SizedBox(height: 4),
-        if (label.isNotEmpty)
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? colorScheme.secondary : Colors.white70,
-              fontSize: 12,
-            ),
-          ),
       ],
     );
   }
