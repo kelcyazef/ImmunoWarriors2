@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/game_providers.dart';
+import '../../providers/firestore_providers.dart';
 
 /// Screen for showing player's progress, victories, and immune memory archives
 class ArchivesScreen extends ConsumerWidget {
@@ -12,7 +14,7 @@ class ArchivesScreen extends ConsumerWidget {
   }
   
   // Build demo signature card for display when no real signatures exist
-  Widget _buildDemoSignatureCard(BuildContext context, String name, String type, TextTheme textTheme) {
+  Widget _buildSignatureCard(BuildContext context, String name, String type, TextTheme textTheme) {
     final typeColors = {
       'Virus': Colors.red[700],
       'Bacterie': Colors.blue[700],
@@ -49,53 +51,65 @@ class ArchivesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Bonus de dégâts: +20%', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                Text('Réduction de coût: -10%', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
   
-  // Build combat history card
-  Widget _buildCombatHistoryCard(BuildContext context, Map<String, dynamic> combat) {
-    final bool isVictory = combat['result'] == 'Victory';
+  // Build combat history item
+  Widget _buildCombatHistoryItem(BuildContext context, DateTime date, String enemyName, String result, int rewardPoints) {
+    final isVictory = result == 'Victory';
+    final backgroundColor = isVictory ? Colors.green[50] : Colors.red[50];
+    final borderColor = isVictory ? Colors.green[200] : Colors.red[200];
+    final iconColor = isVictory ? Colors.green[700] : Colors.red[700];
+    final icon = isVictory ? Icons.check_circle : Icons.cancel;
     
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          backgroundColor: isVictory ? Colors.green[100] : Colors.red[100],
-          child: Icon(
-            isVictory ? Icons.check : Icons.close,
-            color: isVictory ? Colors.green[700] : Colors.red[700],
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border.all(color: borderColor!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  enemyName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  _formatDate(date),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
           ),
-        ),
-        title: Text(
-          combat['enemyName'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          'Date: ${_formatDate(combat['date'])}\nPoints: ${combat["rewardPoints"]}',
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.article_outlined),
-          onPressed: () {
-            // Show battle details
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Chronique détaillée non disponible en mode démo')),
-            );
-          },
-        ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                isVictory ? 'Victoire' : 'Défaite',
+                style: TextStyle(
+                  color: iconColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (isVictory)
+                Text(
+                  '+$rewardPoints pts',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -131,144 +145,191 @@ class ArchivesScreen extends ConsumerWidget {
       ],
     );
   }
+  
+  // Build player stats section
+  Widget _buildPlayerStatsSection(BuildContext context, dynamic profile, dynamic memoireImmunitaire) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.purple.withOpacity(0.2),
+                  child: Icon(Icons.bar_chart, color: Colors.purple[700]),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Statistiques du Joueur',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Résumé des performances et découvertes',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(context, Icons.science, '${memoireImmunitaire.signatureCount}', 'Pathogènes\nDécouverts'),
+                _buildStatItem(context, Icons.military_tech, '${profile.victories ?? 0}', 'Victoires'),
+                _buildStatItem(context, Icons.biotech, '${profile.researchPoints ?? 0}', 'Points de\nRecherche'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Build battle history section
+  Widget _buildBattleHistorySection(BuildContext context, List<Map<String, dynamic>> battleHistory, TextTheme textTheme) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Historique des Combats', style: textTheme.titleMedium),
+            const SizedBox(height: 16),
+            
+            // List of combat history items
+            if (battleHistory.isNotEmpty)
+              ...battleHistory.map((combat) => _buildCombatHistoryItem(
+                context, 
+                combat['timestamp'] != null ? (combat['timestamp'] as Timestamp).toDate() : DateTime.now(), 
+                combat['enemyBaseName'] as String, 
+                combat['victory'] == true ? 'Victory' : 'Defeat', 
+                combat['rewardPoints'] as int? ?? 0,
+              )).toList(),
+            
+            // Show empty state if no combat history
+            if (battleHistory.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aucun combat enregistré'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Build immune memory section
+  Widget _buildImmuneMemorySection(BuildContext context, dynamic memoireImmunitaire, TextTheme textTheme) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mémoire Immunitaire', style: textTheme.titleMedium),
+            const SizedBox(height: 16),
+            
+            // Grid of pathogen signatures
+            if (memoireImmunitaire.signatureCount > 0)
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 2.5,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: memoireImmunitaire.signatureCount,
+                itemBuilder: (context, index) {
+                  final signature = memoireImmunitaire.signatures[index];
+                  final pathogen = signature.pathogenName;
+                  final type = pathogen.contains('Virus') ? 'Virus' : 
+                              pathogen.contains('Staphylococcus') || pathogen.contains('E. Coli') ? 'Bacterie' : 'Champignon';
+                  return _buildSignatureCard(context, pathogen, type, textTheme);
+                },
+              )
+            else
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aucun pathogène découvert'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final memoireImmunitaire = ref.watch(memoireImmunitaireProvider);
-    
-    // Add dummy combat history if none exists
-    final List<Map<String, dynamic>> combatHistory = [
-      {
-        'date': DateTime.now().subtract(const Duration(days: 2)),
-        'enemyName': 'Base Virale Alpha',
-        'result': 'Victory',
-        'rewardPoints': 15,
-      },
-      {
-        'date': DateTime.now().subtract(const Duration(days: 4)),
-        'enemyName': 'Base Virale Beta',
-        'result': 'Defeat',
-        'rewardPoints': 0,
-      },
-      {
-        'date': DateTime.now().subtract(const Duration(days: 7)),
-        'enemyName': 'Base Virale Gamma',
-        'result': 'Victory',
-        'rewardPoints': 20,
-      },
-    ];
-    
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
+    final userProfile = ref.watch(userProfileProvider);
+    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
     
     return Scaffold(
-      backgroundColor: Colors.white, // White background
       appBar: AppBar(
-        title: const Text('Archives'),
-        backgroundColor: navyBlue, // Navy blue app bar
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+        ),
+        title: const Text('Archives & Mémoire Immunitaire'),
+        backgroundColor: navyBlue,
         foregroundColor: Colors.white,
-        elevation: 1,
+        elevation: 2,
+        centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Player stats card
-          Card(
-            color: Colors.white,
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      body: userProfile.when(
+        data: (profile) {
+          // Watch the battle history provider
+          final battleHistoryAsync = ref.watch(battleHistoryProvider);
+          
+          return battleHistoryAsync.when(
+            data: (battleHistory) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.purple.withOpacity(0.2),
-                        child: Icon(Icons.bar_chart, color: Colors.purple[700]),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Statistiques du Joueur',
-                              style: textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Résumé des performances et découvertes',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  // Player stats section
+                  _buildPlayerStatsSection(context, profile, memoireImmunitaire),
                   
-                  // Stats summary
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        context,
-                        Icons.security,
-                        memoireImmunitaire.signatures.isEmpty ? '3' : memoireImmunitaire.signatures.length.toString(),
-                        'Pathogènes Identifiés',
-                      ),
-                      _buildStatItem(
-                        context,
-                        Icons.science,
-                        (memoireImmunitaire.researchPoints + 35).toString(),
-                        'Points de Recherche',
-                      ),
-                      _buildStatItem(
-                        context,
-                        Icons.military_tech,
-                        '7',
-                        'Victoires',
-                      ),
-                    ],
-                  ),
+                  // Battle history section
+                  _buildBattleHistorySection(context, battleHistory, textTheme),
+                  
+                  // Immune memory section
+                  _buildImmuneMemorySection(context, memoireImmunitaire, textTheme),
                 ],
-              ),
-            ),
-          ),
-          
-          // Immune memory section
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            child: Text(
-              'Mémoire Immunitaire',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          
-          // Display demo signature cards
-          _buildDemoSignatureCard(context, 'Influenza Virus', 'Virus', textTheme),
-          _buildDemoSignatureCard(context, 'Staphylococcus Aureus', 'Bacterie', textTheme),
-          _buildDemoSignatureCard(context, 'Candida Albicans', 'Champignon', textTheme),
-          
-          // Battle history section
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            child: Text(
-              'Historique des Combats',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          
-          // Combat history list
-          ...combatHistory.map((combat) => _buildCombatHistoryCard(context, combat)).toList(),
-        ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('Erreur de chargement: $error')),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Erreur de profil: $error')),
       ),
     );
   }

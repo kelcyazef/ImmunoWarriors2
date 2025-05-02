@@ -7,6 +7,7 @@ class UserProfile {
   final int currentBiomateriaux;
   final List<String> immuneMemorySignatures;
   final int researchPoints;
+  final int victories;
   final DateTime lastLogin;
 
   UserProfile({
@@ -16,6 +17,7 @@ class UserProfile {
     this.currentBiomateriaux = 50,
     this.immuneMemorySignatures = const [],
     this.researchPoints = 0,
+    this.victories = 0,
     required this.lastLogin,
   });
 
@@ -27,6 +29,7 @@ class UserProfile {
       'currentBiomateriaux': currentBiomateriaux,
       'immuneMemorySignatures': immuneMemorySignatures,
       'researchPoints': researchPoints,
+      'victories': victories,
       'lastLogin': lastLogin.toIso8601String(),
     };
   }
@@ -71,6 +74,7 @@ class UserProfile {
       currentBiomateriaux: map['currentBiomateriaux'] as int? ?? 50,
       immuneMemorySignatures: signatures,
       researchPoints: map['researchPoints'] as int? ?? 0,
+      victories: map['victories'] as int? ?? 0,
       lastLogin: lastLogin,
     );
   }

@@ -15,15 +15,45 @@ class LaboratoryScreen extends ConsumerWidget {
     final laboratoire = ref.watch(laboratoireRechercheProvider);
     final researchPoints = ref.watch(researchPointsProvider);
     final activeResearch = ref.watch(activeResearchProvider);
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
+    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
     
     return Scaffold(
       backgroundColor: Colors.white, // White background
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+        ),
         title: const Text('Laboratoire R&D'),
-        backgroundColor: navyBlue, // Navy blue app bar
+        backgroundColor: navyBlue,
         foregroundColor: Colors.white,
-        elevation: 1,
+        elevation: 2,
+        centerTitle: true,
+        actions: [
+          // Info button to show laboratory purpose
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Laboratoire de Recherche'),
+                  content: const Text(
+                    'Le Laboratoire R&D vous permet de rechercher de nouvelles technologies pour améliorer vos anticorps, '
+                    'augmenter votre production de ressources, renforcer votre immunité et développer votre Bio-Forge.\n\n'
+                    'Dépensez vos points de recherche pour débloquer des avantages stratégiques contre les agents pathogènes.'
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Compris'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: userProfileAsync.when(
         data: (userProfile) => _buildLaboratoryContent(
@@ -51,8 +81,7 @@ class LaboratoryScreen extends ConsumerWidget {
     WidgetRef ref
   ) {
     // Colors
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color
-    final tealAccent = const Color(0xFF26C6DA); // Teal accent
+    final primaryColor = Theme.of(context).primaryColor;
     final textTheme = Theme.of(context).textTheme;
     
     // If profile is null, show a friendly message with retry button
@@ -61,19 +90,22 @@ class LaboratoryScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.science_outlined, size: 64, color: navyBlue),
+            Icon(Icons.science_outlined, size: 64, color: primaryColor),
             const SizedBox(height: 16),
             const Text('Unable to load laboratory data', 
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
             ),
             const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: navyBlue,
-                foregroundColor: Colors.white,
+            SizedBox(
+              width: 120,
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
               ),
-              child: const Text('Retry'),
             )
           ],
         ),
@@ -115,8 +147,8 @@ class LaboratoryScreen extends ConsumerWidget {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: const Color(0xFFF8E9FC),
-                      child: Icon(Icons.science, size: 28, color: Colors.purple[700]),
+                      backgroundColor: primaryColor.withOpacity(0.1),
+                      child: Icon(Icons.science, size: 28, color: primaryColor),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -129,11 +161,25 @@ class LaboratoryScreen extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          Row(
+                            children: [
+                              Icon(Icons.psychology, size: 16, color: primaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Points de Recherche: $researchPoints',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
                           Text(
-                            'Points de Recherche: $researchPoints',
+                            'Améliorez vos technologies pour renforcer votre système immunitaire',
                             style: TextStyle(
-                              color: Colors.purple[700],
-                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.grey[600],
                             ),
                           ),
                         ],
@@ -172,8 +218,8 @@ class LaboratoryScreen extends ConsumerWidget {
                             return progressAsync.when(
                               data: (progress) => LinearProgressIndicator(
                                 value: progress,
-                                backgroundColor: Colors.grey[300],
-                                valueColor: AlwaysStoppedAnimation<Color>(tealAccent),
+                                backgroundColor: Colors.grey[200],
+                                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                               ),
                               loading: () => const LinearProgressIndicator(),
                               error: (_, __) => const LinearProgressIndicator(value: 0),
@@ -184,9 +230,16 @@ class LaboratoryScreen extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Temps restant: ${activeResearch.getRemainingTime()}s',
-                              style: const TextStyle(fontSize: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Temps restant: ${activeResearch.getRemainingTime()}s',
+                                style: TextStyle(fontSize: 12, color: primaryColor, fontWeight: FontWeight.bold),
+                              ),
                             ),
                             TextButton.icon(
                               onPressed: () {
@@ -195,7 +248,9 @@ class LaboratoryScreen extends ConsumerWidget {
                               icon: const Icon(Icons.cancel, size: 16),
                               label: const Text('Annuler'),
                               style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
+                                foregroundColor: Colors.red[700],
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
                           ],
@@ -352,7 +407,7 @@ class LaboratoryScreen extends ConsumerWidget {
     WidgetRef ref,
   ) {
     final textTheme = Theme.of(context).textTheme;
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
+    final primaryColor = Theme.of(context).primaryColor;
     
     // Status styling
     IconData statusIcon;
@@ -386,15 +441,20 @@ class LaboratoryScreen extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: tech.status == ResearchStatus.locked 
-          ? Colors.grey[100] 
-          : navyBlue, // Use navyBlue color
-        borderRadius: BorderRadius.circular(30), // Change border radius to 30
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: tech.status == ResearchStatus.locked 
             ? Colors.grey[300]! 
             : color.withOpacity(0.3),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,7 +471,7 @@ class LaboratoryScreen extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                     color: tech.status == ResearchStatus.locked 
                       ? Colors.grey 
-                      : Colors.black87,
+                      : primaryColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -446,27 +506,30 @@ class LaboratoryScreen extends ConsumerWidget {
                       ],
                     ),
                     if (tech.status == ResearchStatus.available)
-                      ElevatedButton(
-                        onPressed: canResearch ? () {
-                          if (laboratoire.startResearch(tech.id, availablePoints)) {
-                            // Simply refresh the providers and let the UI update naturally
-                            // No need to store the return values as we're just forcing a UI refresh
-                            ref.invalidate(activeResearchProvider);
-                            ref.invalidate(laboratoireRechercheProvider);
-                            // Log the change
-                            debugPrint('Research started on: ${tech.name}');
-                          }
-                        } : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: navyBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          textStyle: const TextStyle(fontSize: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      SizedBox(
+                        width: 150,
+                        child: ElevatedButton(
+                          onPressed: canResearch ? () {
+                            if (laboratoire.startResearch(tech.id, availablePoints)) {
+                              // Simply refresh the providers and let the UI update naturally
+                              // No need to store the return values as we're just forcing a UI refresh
+                              ref.invalidate(activeResearchProvider);
+                              ref.invalidate(laboratoireRechercheProvider);
+                              // Log the change
+                              debugPrint('Research started on: ${tech.name}');
+                            }
+                          } : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            textStyle: const TextStyle(fontSize: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
+                          child: Text(canResearch ? 'Rechercher' : 'Points Insuffisants'),
                         ),
-                        child: Text(canResearch ? 'Rechercher' : 'Points Insuffisants'),
                       )
                     else if (tech.status == ResearchStatus.inProgress)
                       Text(

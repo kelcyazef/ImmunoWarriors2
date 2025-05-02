@@ -111,8 +111,8 @@ class MemoireImmunitaire with ChangeNotifier {
   int get researchPoints => _researchPoints;
   int get signatureCount => _signatures.length;
   
-  /// Add a new pathogen signature to memory
-  void addSignature(AgentPathogene pathogen) {
+  /// Add a new pathogen signature to memory from a pathogen object
+  void addPathogenSignature(AgentPathogene pathogen) {
     // Check if pathogen is already known
     final existingIndex = _signatures.indexWhere((sig) => sig.pathogenId == pathogen.id);
     
@@ -128,6 +128,38 @@ class MemoireImmunitaire with ChangeNotifier {
     }
     
     notifyListeners();
+  }
+  
+  /// Add a signature from a string name (used for data sync from Firestore)
+  void addSignatureFromName(String pathogenName) {
+    // Only add if not already present by name
+    if (!_signatures.any((sig) => sig.pathogenName == pathogenName)) {
+      // Create a basic signature with default values
+      final signature = PathogenSignature(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        pathogenId: 'sync_${DateTime.now().millisecondsSinceEpoch}',
+        pathogenName: pathogenName,
+        pathogenType: _determineTypeFromName(pathogenName),
+        attackType: AttackType.physical, // Default
+        resistanceFactors: {
+          AttackType.physical: 1.0,
+          AttackType.chemical: 1.0,
+          AttackType.energetic: 1.0, // Fixed to use valid AttackType
+        },
+        discoveryDate: DateTime.now(),
+      );
+      
+      _signatures.add(signature);
+      notifyListeners();
+    }
+  }
+  
+  /// Determine pathogen type from name
+  String _determineTypeFromName(String name) {
+    if (name.contains('Virus')) return 'Virus';
+    if (name.contains('Staphylococcus') || name.contains('E. Coli') || name.contains('Bacterie')) return 'Bacterie';
+    if (name.contains('Candida') || name.contains('Champignon')) return 'Champignon';
+    return 'Unknown';
   }
   
   /// Find a signature by pathogen ID
@@ -148,6 +180,14 @@ class MemoireImmunitaire with ChangeNotifier {
   void addResearchPoints(int points) {
     if (points > 0) {
       _researchPoints += points;
+      notifyListeners();
+    }
+  }
+  
+  /// Set research points (used for data sync)
+  void setResearchPoints(int points) {
+    if (points >= 0) {
+      _researchPoints = points;
       notifyListeners();
     }
   }

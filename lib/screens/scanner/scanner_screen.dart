@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/firestore_providers.dart';
+import '../../providers/game_providers.dart';
 import '../../models/user_profile.dart';
+import '../combat/combat_preparation_screen.dart';
 
 /// Screen for scanning and discovering enemy viral bases
 class ScannerScreen extends ConsumerWidget {
@@ -15,6 +17,10 @@ class ScannerScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.white, // White background
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+        ),
         title: const Text('Scanner'),
         backgroundColor: navyBlue, // Navy blue for app bar
         foregroundColor: Colors.white,
@@ -57,31 +63,6 @@ class ScannerScreen extends ConsumerWidget {
         ),
       );
     }
-    
-    // Mock data for enemy bases
-    final enemyBases = [
-      {
-        'name': 'Base Virale Alpha',
-        'owner': 'Système',
-        'threatLevel': 'Facile',
-        'pathogens': ['Influenza Virus', 'Candida Albicans'],
-        'rewards': {'energie': 20, 'biomateriaux': 15, 'points': 5},
-      },
-      {
-        'name': 'Base Virale Beta',
-        'owner': 'Système',
-        'threatLevel': 'Modéré',
-        'pathogens': ['Staphylococcus', 'Influenza Virus', 'Influenza Virus'],
-        'rewards': {'energie': 35, 'biomateriaux': 25, 'points': 10},
-      },
-      {
-        'name': 'Base Virale Gamma',
-        'owner': 'Système',
-        'threatLevel': 'Difficile',
-        'pathogens': ['Staphylococcus', 'Staphylococcus', 'Candida Albicans', 'Influenza Virus'],
-        'rewards': {'energie': 50, 'biomateriaux': 40, 'points': 15},
-      },
-    ];
     
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -126,20 +107,27 @@ class ScannerScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Simulate scan refresh
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Scan complet. 3 bases virales détectées.')),
-                    );
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Lancer un Scan'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: navyBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    minimumSize: const Size(double.infinity, 0),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Refresh the enemy bases provider
+                      final refreshedProvider = ref.refresh(enemyBasesProvider);
+                      
+                      // Listen to the refreshed provider once to show appropriate message
+                      refreshedProvider.whenData((bases) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Scan complet. ${bases.length} bases virales détectées.')),
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Lancer un Scan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: navyBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
                   ),
                 ),
               ],
@@ -147,8 +135,41 @@ class ScannerScreen extends ConsumerWidget {
           ),
         ),
         
-        // Enemy bases list
-        ...enemyBases.map((base) => _buildEnemyBaseCard(context, base, ref)),
+        // Enemy bases list - dynamic from Firestore
+        Consumer(
+          builder: (context, ref, child) {
+            final enemyBasesAsync = ref.watch(enemyBasesProvider);
+            
+            return enemyBasesAsync.when(
+              data: (enemyBases) {
+                if (enemyBases.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('Aucune base virale détectée. Lancez un scan pour rechercher des cibles.'),
+                    ),
+                  );
+                }
+                
+                return Column(
+                  children: enemyBases.map((base) => _buildEnemyBaseCard(context, base, ref)).toList(),
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (error, stack) => Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text('Erreur lors du chargement des bases: $error'),
+                ),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -161,65 +182,82 @@ class ScannerScreen extends ConsumerWidget {
     Color threatColor;
     switch (base['threatLevel']) {
       case 'Facile':
-        threatColor = Colors.green;
+        threatColor = Colors.green[700]!;
         break;
       case 'Modéré':
-        threatColor = Colors.orange;
+        threatColor = Colors.orange[700]!;
         break;
       case 'Difficile':
-        threatColor = Colors.red;
+        threatColor = Colors.red[700]!;
         break;
       default:
-        threatColor = Colors.blue;
+        threatColor = Colors.blue[700]!;
     }
     
     return Card(
       color: Colors.white,
-      elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.1),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with base name and threat level
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Threat level icon
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: threatColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: threatColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(Icons.bug_report, color: threatColor, size: 30),
+                  child: Icon(Icons.bug_report, color: threatColor, size: 32),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
+                // Base details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         base['name'],
-                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
-                          Text('Propriétaire: ${base['owner']}', 
-                              style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                          const SizedBox(width: 8),
+                          Icon(Icons.person, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            base['owner'], 
+                            style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                          ),
+                          const SizedBox(width: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: threatColor.withOpacity(0.2),
+                              color: threatColor.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              base['threatLevel'],
-                              style: TextStyle(color: threatColor, fontWeight: FontWeight.bold, fontSize: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.warning_amber, size: 14, color: threatColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  base['threatLevel'],
+                                  style: TextStyle(color: threatColor, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -229,60 +267,118 @@ class ScannerScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            
+            // Pathogens section
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.coronavirus, size: 18, color: Colors.grey[800]),
+                const SizedBox(width: 8),
+                Text(
+                  'Pathogènes détectés:', 
+                  style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 8),
-            Text('Pathogènes détectés:', style: textTheme.titleSmall),
-            const SizedBox(height: 8),
+            // Pathogen chips
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: (base['pathogens'] as List).map((pathogen) {
                 return Chip(
-                  backgroundColor: const Color(0xFFEDF2F7),
-                  label: Text(pathogen),
-                  avatar: const Icon(Icons.coronavirus, size: 16),
+                  backgroundColor: const Color(0xFFF0F4F8),
+                  side: BorderSide(color: Colors.grey[300]!),
+                  label: Text(pathogen, style: TextStyle(color: Colors.grey[800])),
+                  avatar: Icon(Icons.coronavirus, size: 16, color: threatColor),
+                  padding: const EdgeInsets.all(4),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            
+            // Rewards and attack button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Rewards section
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Récompenses potentielles:', style: textTheme.titleSmall),
-                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.flash_on, color: Colors.amber[700], size: 16),
-                        Text(' ${base['rewards']['energie']}', style: const TextStyle(fontSize: 12)),
+                        Icon(Icons.emoji_events, size: 18, color: Colors.grey[800]),
                         const SizedBox(width: 8),
-                        Icon(Icons.biotech_outlined, color: Colors.green[700], size: 16),
-                        Text(' ${base['rewards']['biomateriaux']}', style: const TextStyle(fontSize: 12)),
-                        const SizedBox(width: 8),
-                        Icon(Icons.psychology, color: Colors.purple[700], size: 16),
-                        Text(' ${base['rewards']['points']}', style: const TextStyle(fontSize: 12)),
+                        Text(
+                          'Récompenses:', 
+                          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Reward icons with values
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.flash_on, color: Colors.amber[700], size: 18),
+                          Text(' ${base['rewards']['energie']}', 
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 12),
+                          Icon(Icons.biotech_outlined, color: Colors.green[700], size: 18),
+                          Text(' ${base['rewards']['biomateriaux']}', 
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 12),
+                          Icon(Icons.psychology, color: Colors.purple[700], size: 18),
+                          Text(' ${base['rewards']['points']}', 
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                Flexible(
-                  fit: FlexFit.loose,
+                
+                // Attack button
+                SizedBox(
+                  width: 150,
                   child: ElevatedButton.icon(
                     onPressed: () {
+                      // Check if user has enough resources
+                      final resources = ref.read(resourcesProvider);
+                      final requiredEnergie = 10; // Base energy cost for attack
+                      
+                      if (resources.currentEnergie < requiredEnergie) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Énergie insuffisante pour lancer une attaque!')),
+                        );
+                        return;
+                      }
+                      
                       // Navigate to combat preparation screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Préparation à l\'attaque contre ${base['name']}')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CombatPreparationScreen(targetBase: base),
+                        ),
                       );
                     },
-                    icon: const Icon(Icons.security, size: 18),
-                    label: const Text('Attaquer'),
+                    icon: const Icon(Icons.security, size: 20),
+                    label: const Text('Attaquer', style: TextStyle(fontSize: 16)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: navyBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      elevation: 2,
                     ),
                   ),
                 ),

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
 import '../../providers/firestore_providers.dart';
 import '../../providers/game_providers.dart';
+import '../../services/data_sync_service.dart';
 import '../laboratory/laboratory_screen.dart';
 import '../bioforge/bioforge_screen.dart';
 import '../archives/archives_screen.dart';
@@ -27,6 +29,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const ArchivesScreen(),
     null, // Combat (handled via navigation)
   ];
+  
+  // Timer for periodic data sync
+  Timer? _syncTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Set up periodic data sync every 30 seconds
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) => _syncDataToFirestore());
+  }
+  
+  @override
+  void dispose() {
+    // Cancel timer when widget is disposed
+    _syncTimer?.cancel();
+    // Final sync when leaving the app
+    _syncDataToFirestore();
+    super.dispose();
+  }
+  
+  // Sync local state to Firestore
+  Future<void> _syncDataToFirestore() async {
+    final dataSyncService = ref.read(dataSyncServiceProvider);
+    await dataSyncService.syncUserDataToFirestore();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildBottomNavItem(Icons.science, 'Labo R&D', colorScheme, 3),
             _buildBottomNavItem(Icons.menu_book, 'Archives', colorScheme, 4),
             _buildBottomNavItem(Icons.security, 'Attack', colorScheme, 5),
+
           ],
         ),
       ),
@@ -105,12 +133,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return InkWell(
       onTap: () {
         if (index == 5) {
+          // Create a mock target base for quick combat access
+          final mockTargetBase = {
+            'id': 'quick-combat-${DateTime.now().millisecondsSinceEpoch}',
+            'name': 'Base d\'Entraînement',
+            'owner': 'Système',
+            'ownerId': 'system',
+            'threatLevel': 'Facile',
+            'pathogens': ['Influenza Virus', 'Candida Albicans'],
+            'rewards': {'energie': 20, 'biomateriaux': 15, 'points': 5},
+          };
+          
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => const CombatPreparationScreen(
-                enemyBaseName: 'Enemy Base',
-                enemyPathogens: [],
+              builder: (_) => CombatPreparationScreen(
+                targetBase: mockTargetBase,
               ),
             ),
           );
@@ -137,7 +175,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildDashboardContent(BuildContext context, UserProfile userProfile, resources, memoireImmunitaire, int researchPoints) {
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
 
@@ -477,37 +514,112 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Gemini Briefing Card (Fourth Card - as in screenshot)
         Card(
           color: const Color(0xFFF8E9FC), // Light purple background
-          elevation: 1,
-          shadowColor: Colors.black.withOpacity(0.05),
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           margin: const EdgeInsets.only(bottom: 16),
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // This would be a screenshot from the dashboard as shown in the image
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.analytics, color: Colors.white, size: 40),
+                // Header with title and analytics icon
+                Row(
+                  children: [
+                    Icon(Icons.analytics, color: Colors.purple[700], size: 24),
+                    const SizedBox(width: 12),
+                    Text('Briefing Analyste IA (Gemini)',
+                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.purple[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.auto_graph, color: Colors.purple[700], size: 16),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Briefing Analyste IA (Gemini)',
-                          style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      const Text("En attente d'un briefing tactique...",
-                          style: TextStyle(color: Colors.black54)),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                // Main content section
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Analytics visualization container
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.purple[700],
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.purple.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Simulated analytics graph
+                          Positioned(
+                            bottom: 15,
+                            left: 15,
+                            right: 15,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(
+                                5,
+                                (index) => Container(
+                                  width: 6,
+                                  height: 10.0 + (index * 5.0),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.7 + (index * 0.05)),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Analytics icon overlay
+                          const Icon(Icons.analytics, color: Colors.white, size: 40),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Text content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber[700]),
+                              const SizedBox(width: 8),
+                              Text('Analyse Tactique',
+                                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Text("En attente d'un briefing tactique...",
+                            style: TextStyle(color: Colors.black54)),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.refresh, size: 14, color: Colors.purple[400]),
+                              const SizedBox(width: 4),
+                              Text('Mise à jour: maintenant',
+                                style: TextStyle(fontSize: 12, color: Colors.purple[400])),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

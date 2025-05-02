@@ -4,6 +4,9 @@ import '../../models/anticorps.dart';
 import '../../models/agent_pathogene.dart';
 import '../../models/combat_manager.dart';
 import '../../providers/game_providers.dart';
+import '../../providers/firestore_providers.dart';
+import '../../providers/auth_providers.dart';
+import '../../services/data_sync_service.dart';
 
 /// Screen for visualizing and simulating combat
 class CombatSimulationScreen extends ConsumerStatefulWidget {
@@ -114,6 +117,10 @@ class _CombatSimulationScreenState extends ConsumerState<CombatSimulationScreen>
     return Scaffold(
       backgroundColor: colorScheme.primary,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+        ),
         title: const Text('Simulation de Combat'),
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
@@ -482,20 +489,24 @@ class CombatResultScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
+    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
     final textTheme = Theme.of(context).textTheme;
     
     // Update resources and memory
     final resources = ref.watch(resourcesProvider);
     final memoireImmunitaire = ref.watch(memoireImmunitaireProvider);
+    final firestoreService = ref.watch(firestoreServiceProvider);
+    final authState = ref.watch(authStateProvider);
+    final userProfile = ref.watch(userProfileProvider);
     
     return Scaffold(
-      backgroundColor: colorScheme.primary,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Résultats du Combat'),
-        backgroundColor: colorScheme.primary,
+        backgroundColor: navyBlue,
         foregroundColor: Colors.white,
-        elevation: 0,
+        elevation: 2,
+        centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -694,11 +705,48 @@ class CombatResultScreen extends ConsumerWidget {
           // Action buttons
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () {
+            onPressed: () async {
               // Apply rewards
               resources.updateResources();
               resources.consumeEnergie(-combatResult.resourcesGained); // Negative consumption = addition
               memoireImmunitaire.addResearchPoints(combatResult.researchPointsGained);
+              
+              // Save battle results to Firestore
+              if (authState.value != null) {
+                final userId = authState.value!.uid;
+                final dataSyncService = ref.read(dataSyncServiceProvider);
+                
+                // Record battle in history
+                await firestoreService.recordBattle(
+                  userId: userId,
+                  enemyBaseName: enemyBaseName,
+                  victory: combatResult.playerVictory,
+                  rewardPoints: combatResult.researchPointsGained,
+                  resourcesGained: combatResult.resourcesGained
+                );
+                
+                // Update user profile with new values
+                userProfile.whenData((profile) async {
+                  if (profile != null) {
+                    await firestoreService.updateUserProfile(userId, {
+                      'currentEnergie': resources.currentEnergie,
+                      'currentBiomateriaux': resources.currentBiomateriaux,
+                      'researchPoints': profile.researchPoints + combatResult.researchPointsGained,
+                      'victories': profile.victories + (combatResult.playerVictory ? 1 : 0),
+                    });
+                  }
+                });
+                
+                // Add pathogen signatures to immune memory if any were defeated
+                for (final id in combatResult.pathogenIdsDefeated) {
+                  final pathogen = enemyPathogens.firstWhere((p) => p.id == id);
+                  await firestoreService.addPathogenSignature(userId, pathogen.name);
+                }
+                
+                // Perform a full data sync to ensure everything is saved
+                await dataSyncService.syncUserDataToFirestore();
+                print('Combat results synced to Firestore: Energy=${resources.currentEnergie}, Research Points gained=${combatResult.researchPointsGained}');
+              }
               
               // Return to home
               Navigator.of(context).popUntil((route) => route.isFirst);
@@ -706,7 +754,7 @@ class CombatResultScreen extends ConsumerWidget {
             icon: const Icon(Icons.home),
             label: const Text('Retour au Centre de Commandement'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
+              backgroundColor: navyBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               minimumSize: const Size(double.infinity, 0),

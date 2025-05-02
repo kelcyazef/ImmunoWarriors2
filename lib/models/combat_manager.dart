@@ -613,7 +613,7 @@ class CombatManager with ChangeNotifier {
           
           // Add to memory if available
           if (_memoireImmunitaire != null) {
-            _memoireImmunitaire!.addSignature(pathogen);
+            _memoireImmunitaire!.addPathogenSignature(pathogen);
           }
           
           // Additional rewards based on pathogen difficulty

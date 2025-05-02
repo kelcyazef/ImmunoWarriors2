@@ -62,6 +62,14 @@ class ResourcesDefensive with ChangeNotifier {
   /// Consumes energie for actions
   /// Returns true if successful, false if insufficient energie
   bool consumeEnergie(int amount) {
+    // Negative amount means adding energie
+    if (amount < 0) {
+      _currentEnergie = (_currentEnergie - amount).clamp(0, _maxEnergie);
+      notifyListeners();
+      return true;
+    }
+    
+    // Check if we have enough energie
     if (_currentEnergie >= amount) {
       _currentEnergie -= amount;
       notifyListeners();
@@ -70,15 +78,39 @@ class ResourcesDefensive with ChangeNotifier {
     return false;
   }
   
+  /// Update energie to a specific value (for data sync)
+  void updateEnergie(int value) {
+    if (value >= 0) {
+      _currentEnergie = value.clamp(0, _maxEnergie);
+      notifyListeners();
+    }
+  }
+  
   /// Consumes biomateriaux for creation
   /// Returns true if successful, false if insufficient biomateriaux
   bool consumeBiomateriaux(int amount) {
+    // Negative amount means adding biomateriaux
+    if (amount < 0) {
+      _currentBiomateriaux = (_currentBiomateriaux - amount).clamp(0, _maxBiomateriaux);
+      notifyListeners();
+      return true;
+    }
+    
+    // Check if we have enough biomateriaux
     if (_currentBiomateriaux >= amount) {
       _currentBiomateriaux -= amount;
       notifyListeners();
       return true;
     }
     return false;
+  }
+  
+  /// Update biomateriaux to a specific value (for data sync)
+  void updateBiomateriaux(int value) {
+    if (value >= 0) {
+      _currentBiomateriaux = value.clamp(0, _maxBiomateriaux);
+      notifyListeners();
+    }
   }
   
   /// Increases regeneration rates from research or upgrades

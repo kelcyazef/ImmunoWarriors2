@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/anticorps.dart';
 import '../../models/agent_pathogene.dart';
+import '../../models/anticorps.dart';
 import '../../providers/game_providers.dart';
+import '../../models/agent_pathogene_factory.dart' hide Virus, Bacteria, Fungus;
 import 'combat_simulation_screen.dart';
 
 /// Screen for preparing for combat by selecting antibodies
 class CombatPreparationScreen extends ConsumerWidget {
-  final String enemyBaseName;
-  final List<AgentPathogene> enemyPathogens;
+  final Map<String, dynamic> targetBase;
   
   const CombatPreparationScreen({
     super.key,
-    required this.enemyBaseName,
-    required this.enemyPathogens,
+    required this.targetBase,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final resources = ref.watch(resourcesProvider);
     final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
     
@@ -36,6 +34,10 @@ class CombatPreparationScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
+        ),
         title: const Text('Préparation au Combat'),
         backgroundColor: navyBlue,
         foregroundColor: Colors.white,
@@ -43,6 +45,31 @@ class CombatPreparationScreen extends ConsumerWidget {
       ),
       body: StatefulBuilder(
         builder: (context, setState) {
+          // Get enemy base details
+          final String enemyBaseName = targetBase['name'] ?? 'Base Inconnue';
+          final List<dynamic> pathogenNames = targetBase['pathogens'] ?? [];
+          final Map<String, dynamic> rewards = targetBase['rewards'] ?? {'energie': 0, 'biomateriaux': 0, 'points': 0};
+          
+          // Use rewards in the UI
+          final int energieReward = rewards['energie'] ?? 0;
+          final int biomateriauxReward = rewards['biomateriaux'] ?? 0;
+          final int pointsReward = rewards['points'] ?? 0;
+          
+          // Create rewards text for display
+          final rewardsText = 'Récompenses potentielles: $energieReward énergie, $biomateriauxReward biomatériaux, $pointsReward points';
+          
+          // Convert pathogen names to AgentPathogene objects
+          final List<AgentPathogene> enemyPathogens = pathogenNames.map((name) {
+            // Create appropriate pathogen based on name
+            if (name.toString().contains('Influenza')) {
+              return AgentPathogeneFactory.createVirus(name: name.toString());
+            } else if (name.toString().contains('Staphylococcus') || name.toString().contains('E. Coli')) {
+              return AgentPathogeneFactory.createBacteria(name: name.toString());
+            } else {
+              return AgentPathogeneFactory.createFungus(name: name.toString());
+            }
+          }).toList();
+          
           // Calculate total resources required
           int totalEnergyCost = selectedAntibodies.fold(
             0, (sum, antibody) => sum + antibody.energyCost);
@@ -137,7 +164,7 @@ class CombatPreparationScreen extends ConsumerWidget {
                                 Text(
                                   '${selectedAntibodies.length} sélectionnés',
                                   style: TextStyle(
-                                    color: colorScheme.primary,
+                                    color: navyBlue,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -195,6 +222,42 @@ class CombatPreparationScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Target info card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cible: $enemyBaseName',
+                      style: TextStyle(
+                        color: navyBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      rewardsText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
                       ),
                     ),
                   ],
@@ -354,12 +417,22 @@ class CombatPreparationScreen extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(Icons.favorite, color: Colors.red[300], size: 14),
-                    Text(' ${antibody.healthPoints}/${antibody.maxHealthPoints}'),
+                    Flexible(
+                      child: Text(' ${antibody.healthPoints}/${antibody.maxHealthPoints}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Icon(Icons.flash_on, color: Colors.amber[700], size: 14),
-                    Text(' ${antibody.damage}'),
+                    Flexible(
+                      child: Text(' ${antibody.damage}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    _getAttackTypeChip(antibody.attackType),
+                    Flexible(
+                      child: _getAttackTypeChip(antibody.attackType),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
