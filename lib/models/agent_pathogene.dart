@@ -82,25 +82,15 @@ class Virus extends AgentPathogene {
   AttackType _originalAttackType;
   
   Virus({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required double armor,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required Map<AttackType, double> resistanceFactors,
-  }) : _originalAttackType = attackType,
-       super(
-         id: id,
-         name: name,
-         maxHealthPoints: maxHealthPoints,
-         armor: armor,
-         attackType: attackType,
-         damage: damage,
-         initiative: initiative,
-         resistanceFactors: resistanceFactors,
-       );
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.armor,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.resistanceFactors,
+  }) : _originalAttackType = attackType;
        
   /// Special capability: Rapid Mutation
   /// Changes attack type and can modify resistances temporarily
@@ -184,26 +174,16 @@ class Bacterie extends AgentPathogene {
   bool get biofilmActive => _biofilmActive;
   
   Bacterie({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required double armor,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required Map<AttackType, double> resistanceFactors,
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.armor,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.resistanceFactors,
     double? biofilmDamageReduction,
-  }) : _biofilmDamageReduction = biofilmDamageReduction ?? 0.4,
-       super(
-         id: id,
-         name: name,
-         maxHealthPoints: maxHealthPoints,
-         armor: armor,
-         attackType: attackType,
-         damage: damage,
-         initiative: initiative,
-         resistanceFactors: resistanceFactors,
-       );
+  }) : _biofilmDamageReduction = biofilmDamageReduction ?? 0.4;
        
   /// Special capability: Biofilm Shield
   /// Creates a protective layer that reduces incoming damage
@@ -275,26 +255,16 @@ class Champignon extends AgentPathogene {
   bool get sporesReleased => _sporesReleased;
   
   Champignon({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required double armor,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required Map<AttackType, double> resistanceFactors,
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.armor,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.resistanceFactors,
     int? sporesDamage,
-  }) : _sporesDamage = sporesDamage ?? 2,
-       super(
-         id: id,
-         name: name,
-         maxHealthPoints: maxHealthPoints,
-         armor: armor,
-         attackType: attackType,
-         damage: damage,
-         initiative: initiative,
-         resistanceFactors: resistanceFactors,
-       );
+  }) : _sporesDamage = sporesDamage ?? 2;
        
   /// Special capability: Corrosive Spores
   /// Releases spores that deal damage over time

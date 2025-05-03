@@ -84,31 +84,20 @@ class AnticorpsOffensif extends Anticorps {
   bool get toxicSalvoReady => _toxicSalvoReady;
   
   AnticorpsOffensif({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required int energyCost,
-    required int biomaterialCost,
-    required int productionTime,
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.energyCost,
+    required super.biomaterialCost,
+    required super.productionTime,
     int? toxicSalvoDamageMultiplier,
     int? toxicSalvoCooldown,
   }) : 
     _toxicSalvoDamageMultiplier = toxicSalvoDamageMultiplier ?? 2,
-    _toxicSalvoCooldown = toxicSalvoCooldown ?? 3,
-    super(
-      id: id,
-      name: name,
-      maxHealthPoints: maxHealthPoints,
-      attackType: attackType,
-      damage: damage,
-      initiative: initiative,
-      energyCost: energyCost,
-      biomaterialCost: biomaterialCost,
-      productionTime: productionTime,
-    );
+    _toxicSalvoCooldown = toxicSalvoCooldown ?? 3;
   
   /// Special capability: Toxic Salvo (area attack)
   @override
@@ -180,31 +169,20 @@ class AnticorpsDefensif extends Anticorps {
   bool get cellularRepairReady => _cellularRepairReady;
   
   AnticorpsDefensif({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required int energyCost,
-    required int biomaterialCost,
-    required int productionTime,
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.energyCost,
+    required super.biomaterialCost,
+    required super.productionTime,
     int? healAmount,
     int? cellularRepairCooldown,
   }) : 
     _healAmount = healAmount ?? 10,
-    _cellularRepairCooldown = cellularRepairCooldown ?? 2,
-    super(
-      id: id,
-      name: name,
-      maxHealthPoints: maxHealthPoints,
-      attackType: attackType,
-      damage: damage,
-      initiative: initiative,
-      energyCost: energyCost,
-      biomaterialCost: biomaterialCost,
-      productionTime: productionTime,
-    );
+    _cellularRepairCooldown = cellularRepairCooldown ?? 2;
   
   /// Special capability: Cellular Repair (healing)
   @override
@@ -275,31 +253,20 @@ class AnticorpsMarqueur extends Anticorps {
   bool get targetMarkingReady => _targetMarkingReady;
   
   AnticorpsMarqueur({
-    required String id,
-    required String name,
-    required int maxHealthPoints,
-    required AttackType attackType,
-    required int damage,
-    required int initiative,
-    required int energyCost,
-    required int biomaterialCost,
-    required int productionTime,
+    required super.id,
+    required super.name,
+    required super.maxHealthPoints,
+    required super.attackType,
+    required super.damage,
+    required super.initiative,
+    required super.energyCost,
+    required super.biomaterialCost,
+    required super.productionTime,
     double? markingDamageIncrease,
     int? targetMarkingCooldown,
   }) : 
     _markingDamageIncrease = markingDamageIncrease ?? 0.5,
-    _targetMarkingCooldown = targetMarkingCooldown ?? 1,
-    super(
-      id: id,
-      name: name,
-      maxHealthPoints: maxHealthPoints,
-      attackType: attackType,
-      damage: damage,
-      initiative: initiative,
-      energyCost: energyCost,
-      biomaterialCost: biomaterialCost,
-      productionTime: productionTime,
-    );
+    _targetMarkingCooldown = targetMarkingCooldown ?? 1;
   
   /// Special capability: Target Marking (increase damage)
   @override

@@ -11,6 +11,7 @@ import '../../services/data_sync_service.dart';
 import '../../services/game_state_storage.dart';
 import '../laboratory/laboratory_screen.dart';
 import '../bioforge/bioforge_screen.dart';
+import 'home_screen_energy.dart';
 import '../archives/archives_screen.dart';
 import '../combat/combat_preparation_screen.dart';
 import '../scanner/scanner_screen.dart';
@@ -486,11 +487,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: const Color(0xFFFFFAE6),
                             shape: BoxShape.circle,
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.bolt,
-                              color: Color(0xFFFFC107),
-                              size: 30,
+                          child: Center(
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.bolt,
+                                  color: Color(0xFFFFC107),
+                                  size: 30,
+                                ),
+                                // Add small + button to indicate energy can be refilled
+                                Positioned(
+                                  right: -6,
+                                  bottom: -6,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.add,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -512,18 +535,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     // Bio-materiaux
                     Column(
                       children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.science,
-                              color: Color(0xFF4CAF50),
-                              size: 30,
+                        GestureDetector(
+                          onTap: () {
+                            showEnergyRefillOptions(context);
+                          },
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.science,
+                                color: Color(0xFF4CAF50),
+                                size: 30,
+                              ),
                             ),
                           ),
                         ),
