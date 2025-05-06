@@ -4,6 +4,7 @@ import '../../models/agent_pathogene.dart';
 import '../../models/anticorps.dart';
 import '../../providers/game_providers.dart';
 import '../../models/agent_pathogene_factory.dart' hide Virus, Bacteria, Fungus;
+import '../../widgets/tactical_advice_dialog.dart';
 import 'combat_simulation_screen.dart';
 
 /// Screen for preparing for combat by selecting antibodies
@@ -14,6 +15,84 @@ class CombatPreparationScreen extends ConsumerWidget {
     super.key,
     required this.targetBase,
   });
+  
+  // Show tactical advice dialog using Gemini AI
+  void _showTacticalAdvice(BuildContext context, List<AgentPathogene> enemyPathogens, WidgetRef ref) {
+    print('_showTacticalAdvice called');
+    
+    // Prepare player state data
+    final resources = ref.read(resourcesProvider);
+    final playerState = {
+      'resources': {
+        'energy': resources.currentEnergie,
+        'biomaterials': resources.currentBiomateriaux,
+      },
+      'availableUnits': [
+        {'name': 'Lymphocyte T', 'type': 'Combat', 'hp': 100, 'damage': 30},
+        {'name': 'Killer Cell', 'type': 'Assault', 'hp': 80, 'damage': 40},
+        {'name': 'Macrophage', 'type': 'Tank', 'hp': 150, 'damage': 20},
+        {'name': 'Lymphocyte B', 'type': 'Support', 'hp': 90, 'damage': 25},
+      ],
+      'researchLevel': 1, // Using a default value since ResourcesDefensive doesn't have researchLevel
+    };
+    
+    print('Player state prepared: $playerState');
+    
+    // Prepare enemy base data
+    final enemyBase = {
+      'units': enemyPathogens.map((pathogen) => {
+        'name': pathogen.name,
+        'type': pathogen.runtimeType.toString(),
+        'hp': pathogen.healthPoints,
+        'damage': pathogen.damage,
+      }).toList(),
+      'weaknesses': _getEnemyBaseWeaknesses(enemyPathogens),
+    };
+    
+    print('Enemy base prepared: $enemyBase');
+    
+    // Show tactical advice dialog
+    showDialog(
+      context: context,
+      builder: (context) => TacticalAdviceDialog(
+        playerState: playerState,
+        enemyBase: enemyBase,
+      ),
+    );
+  }
+  
+  // Helper method to get enemy weaknesses based on pathogen types
+  String _getEnemyBaseWeaknesses(List<AgentPathogene> pathogens) {
+    final typeCount = {
+      'Virus': 0,
+      'Bacterie': 0,
+      'Champignon': 0,
+    };
+    
+    for (final pathogen in pathogens) {
+      if (pathogen is Virus) {
+        typeCount['Virus'] = (typeCount['Virus'] ?? 0) + 1;
+      } else if (pathogen is Bacterie) {
+        typeCount['Bacterie'] = (typeCount['Bacterie'] ?? 0) + 1;
+      } else if (pathogen is Champignon) {
+        typeCount['Champignon'] = (typeCount['Champignon'] ?? 0) + 1;
+      }
+    }
+    
+    // Determine weaknesses based on enemy composition
+    final weaknesses = <String>[];
+    if ((typeCount['Virus'] ?? 0) > 0) {
+      weaknesses.add('Chemical attacks');
+    }
+    if ((typeCount['Bacterie'] ?? 0) > 0) {
+      weaknesses.add('Physical penetration');
+    }
+    if ((typeCount['Champignon'] ?? 0) > 0) {
+      weaknesses.add('Area effects');
+    }
+    
+    return weaknesses.join(', ');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,8 +107,8 @@ class CombatPreparationScreen extends ConsumerWidget {
       AnticorpsFactory.createLymphocyteB(),
     ];
     
-    // Tracks selected antibodies
-    final selectedAntibodies = <Anticorps>[];
+    // Using a stateful variable to track selections across rebuilds
+    final ValueNotifier<List<Anticorps>> selectedAntibodiesNotifier = ValueNotifier<List<Anticorps>>([]);
     
     return Scaffold(
       backgroundColor: Colors.white,
@@ -43,8 +122,9 @@ class CombatPreparationScreen extends ConsumerWidget {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: StatefulBuilder(
-        builder: (context, setState) {
+      body: ValueListenableBuilder<List<Anticorps>>(
+        valueListenable: selectedAntibodiesNotifier,
+        builder: (context, selectedAntibodies, _) {
           // Get enemy base details
           final String enemyBaseName = targetBase['name'] ?? 'Base Inconnue';
           final List<dynamic> pathogenNames = targetBase['pathogens'] ?? [];
@@ -87,184 +167,185 @@ class CombatPreparationScreen extends ConsumerWidget {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    // Enemy base information
+                    // Enemy base information section
                     Card(
-                      color: Colors.white,
                       elevation: 4,
                       shadowColor: Colors.black.withOpacity(0.1),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: Colors.red.withOpacity(0.2),
-                                  child: Icon(Icons.coronavirus, size: 28, color: Colors.red[700]),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        enemyBaseName, 
-                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${enemyPathogens.length} pathogènes hostiles détectés',
-                                        style: const TextStyle(color: Colors.black54),
-                                      ),
-                                    ],
+                      child: Container(
+                        color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.red.withOpacity(0.2),
+                                    child: Icon(Icons.coronavirus, size: 28, color: Colors.red[700]),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            const Divider(),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Pathogènes détectés:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            ...enemyPathogens.map((pathogen) => _buildPathogenListItem(context, pathogen)),
-                          ],
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          enemyBaseName, 
+                                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${enemyPathogens.length} pathogènes hostiles détectés',
+                                          style: const TextStyle(color: Colors.black54),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(rewardsText, 
+                                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              const Divider(),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Pathogènes détectés:',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  // Tactical advice button with shadow for better visibility
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          spreadRadius: 1,
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _showTacticalAdvice(context, enemyPathogens, ref),
+                                      icon: const Icon(Icons.psychology, size: 16),
+                                      label: const Text('Analyse Tactique'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF26C6DA),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        textStyle: const TextStyle(fontSize: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        minimumSize: const Size(0, 0), // Prevent infinite width
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...enemyPathogens.map((pathogen) => _buildPathogenListItem(context, pathogen)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                    
-                    // Antibody selection section
                     Card(
-                      color: Colors.white,
                       elevation: 4,
                       shadowColor: Colors.black.withOpacity(0.1),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Sélection des Anticorps', 
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                      child: Container(
+                        color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text.rich(
+                                    TextSpan(
+                                      text: 'Sélection des Anticorps',
+                                    ),
+                                    key: const Key('selection-title'),
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  '${selectedAntibodies.length} sélectionnés',
-                                  style: TextStyle(
-                                    color: navyBlue,
-                                    fontWeight: FontWeight.bold,
+                                  Text.rich(
+                                    TextSpan(
+                                      text: '${selectedAntibodies.length} sélectionnés',
+                                    ),
+                                    key: const Key('selection-count'),
+                                    style: TextStyle(
+                                      color: navyBlue,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            const Divider(),
-                            const SizedBox(height: 8),
-                            ...availableAntibodies.map((antibody) => _buildAntibodySelectionItem(
-                              context,
-                              antibody,
-                              selectedAntibodies.contains(antibody),
-                              (isSelected) {
-                                setState(() {
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              ...availableAntibodies.map((antibody) => _buildAntibodySelectionItem(
+                                context, antibody, selectedAntibodies.contains(antibody),
+                                (isSelected) {
+                                  final updatedList = List<Anticorps>.from(selectedAntibodies);
                                   if (isSelected) {
-                                    if (!selectedAntibodies.contains(antibody)) {
-                                      selectedAntibodies.add(antibody);
+                                    if (!updatedList.contains(antibody)) {
+                                      updatedList.add(antibody);
                                     }
                                   } else {
-                                    selectedAntibodies.remove(antibody);
+                                    updatedList.remove(antibody);
                                   }
-                                });
-                              },
-                            )),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Ressources requises:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.flash_on, color: Colors.amber[700], size: 20),
-                                Text(
-                                  ' $totalEnergyCost / ${resources.currentEnergie}',
-                                  style: TextStyle(
-                                    color: totalEnergyCost > resources.currentEnergie 
-                                        ? Colors.red 
-                                        : Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Icon(Icons.biotech_outlined, color: Colors.green[700], size: 20),
-                                Text(
-                                  ' $totalBiomaterialCost / ${resources.currentBiomateriaux}',
-                                  style: TextStyle(
-                                    color: totalBiomaterialCost > resources.currentBiomateriaux 
-                                        ? Colors.red 
-                                        : Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  selectedAntibodiesNotifier.value = updatedList;
+                                },
+                              )),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              
-              // Target info card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Ressources requises:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Cible: $enemyBaseName',
-                      style: TextStyle(
-                        color: navyBlue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      rewardsText,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[700],
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.flash_on, color: Colors.amber[700], size: 20),
+                        Text(
+                          ' $totalEnergyCost / ${resources.currentEnergie}',
+                          style: TextStyle(
+                            color: totalEnergyCost > resources.currentEnergie 
+                                ? Colors.red 
+                                : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(Icons.biotech_outlined, color: Colors.green[700], size: 20),
+                        Text(
+                          ' $totalBiomaterialCost / ${resources.currentBiomateriaux}',
+                          style: TextStyle(
+                            color: totalBiomaterialCost > resources.currentBiomateriaux 
+                                ? Colors.red 
+                                : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              
-              // Action button
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -279,18 +360,24 @@ class CombatPreparationScreen extends ConsumerWidget {
                 ),
                 child: ElevatedButton(
                   onPressed: canDeploy ? () {
+                    // Print debug info
+                    debugPrint('Deploying antibodies: ${selectedAntibodies.length}');
+                    debugPrint('Enemy pathogens: ${enemyPathogens.length}');
+                    
                     // Consume resources
                     resources.consumeEnergie(totalEnergyCost);
                     resources.consumeBiomateriaux(totalBiomaterialCost);
                     
-                    // Navigate to combat simulation screen
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => CombatSimulationScreen(
-                        enemyBaseName: enemyBaseName,
-                        playerAntibodies: List.from(selectedAntibodies),
-                        enemyPathogens: enemyPathogens,
+                    // Navigate to combat simulation
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => CombatSimulationScreen(
+                          enemyBaseName: enemyBaseName,
+                          playerAntibodies: List<Anticorps>.from(selectedAntibodies),
+                          enemyPathogens: enemyPathogens,
+                        ),
                       ),
-                    ));
+                    );
                   } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: navyBlue, // Navy blue color for button
@@ -300,8 +387,10 @@ class CombatPreparationScreen extends ConsumerWidget {
                     disabledBackgroundColor: Colors.grey[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text(
-                    'Déployer les Anticorps',
+                  child: const Text.rich(
+                    TextSpan(
+                      text: 'Déployer les Anticorps',
+                    ),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),

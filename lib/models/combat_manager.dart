@@ -56,6 +56,11 @@ class CombatResult {
   final int researchPointsGained;
   final List<String> pathogenIdsDefeated;
   
+  // For Gemini AI battle chronicles
+  final List<Map<String, dynamic>>? playerUnits;
+  final List<Map<String, dynamic>>? enemyUnits;
+  final List<String>? significantEvents;
+  
   CombatResult({
     required this.playerVictory,
     required this.turnsElapsed,
@@ -63,6 +68,9 @@ class CombatResult {
     required this.resourcesGained,
     required this.researchPointsGained,
     required this.pathogenIdsDefeated,
+    this.playerUnits,
+    this.enemyUnits,
+    this.significantEvents,
   });
   
   Map<String, dynamic> toMap() {
@@ -73,6 +81,9 @@ class CombatResult {
       'resourcesGained': resourcesGained,
       'researchPointsGained': researchPointsGained,
       'pathogenIdsDefeated': pathogenIdsDefeated,
+      'playerUnits': playerUnits,
+      'enemyUnits': enemyUnits,
+      'significantEvents': significantEvents,
     };
   }
   
@@ -88,6 +99,15 @@ class CombatResult {
       resourcesGained: map['resourcesGained'] ?? 0,
       researchPointsGained: map['researchPointsGained'] ?? 0,
       pathogenIdsDefeated: List<String>.from(map['pathogenIdsDefeated'] ?? []),
+      playerUnits: map['playerUnits'] != null 
+          ? List<Map<String, dynamic>>.from(map['playerUnits'])
+          : null,
+      enemyUnits: map['enemyUnits'] != null 
+          ? List<Map<String, dynamic>>.from(map['enemyUnits']) 
+          : null,
+      significantEvents: map['significantEvents'] != null 
+          ? List<String>.from(map['significantEvents']) 
+          : null,
     );
   }
 }
@@ -600,6 +620,11 @@ class CombatManager with ChangeNotifier {
     int researchPointsGained = 0;
     List<String> pathogenIdsDefeated = [];
     
+    // Prepare data for Gemini AI
+    final List<Map<String, dynamic>> playerUnitData = [];
+    final List<Map<String, dynamic>> enemyUnitData = [];
+    final List<String> significantEvents = [];
+    
     if (victory) {
       // Base rewards
       resourcesGained = 10 + (5 * _currentTurn);
@@ -627,6 +652,45 @@ class CombatManager with ChangeNotifier {
       researchPointsGained = 1;
     }
     
+    // Prepare player unit data for Gemini
+    for (final unit in _combatUnits.where((u) => u.isPlayerUnit)) {
+      if (unit.unit is Anticorps) {
+        final antibody = unit.unit as Anticorps;
+        playerUnitData.add({
+          'name': antibody.name,
+          'type': antibody.runtimeType.toString(),
+          'hp': antibody.healthPoints,
+          'maxHp': antibody.maxHealthPoints,
+          'attackType': antibody.attackType.toString(),
+        });
+      }
+    }
+    
+    // Prepare enemy unit data for Gemini
+    for (final unit in _combatUnits.where((u) => !u.isPlayerUnit)) {
+      if (unit.unit is AgentPathogene) {
+        final pathogen = unit.unit as AgentPathogene;
+        enemyUnitData.add({
+          'name': pathogen.name,
+          'type': pathogen.runtimeType.toString(),
+          'hp': pathogen.healthPoints,
+          'maxHp': pathogen.maxHealthPoints,
+        });
+      }
+    }
+    
+    // Extract significant events for the narrative
+    for (final entry in _combatLog) {
+      if (entry.isSpecialAction || entry.damage != null && entry.damage! > 20) {
+        significantEvents.add(entry.message);
+      }
+    }
+    
+    // Take only the most interesting events if we have too many
+    final eventsForGemini = significantEvents.length > 10 
+        ? significantEvents.sublist(0, 5) + significantEvents.sublist(significantEvents.length - 5) 
+        : significantEvents;
+    
     return CombatResult(
       playerVictory: victory,
       turnsElapsed: _currentTurn,
@@ -634,6 +698,9 @@ class CombatManager with ChangeNotifier {
       resourcesGained: resourcesGained,
       researchPointsGained: researchPointsGained,
       pathogenIdsDefeated: pathogenIdsDefeated,
+      playerUnits: playerUnitData,
+      enemyUnits: enemyUnitData,
+      significantEvents: eventsForGemini,
     );
   }
   

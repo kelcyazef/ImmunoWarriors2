@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'providers/auth_providers.dart';
-
+import 'providers/gemini_providers.dart';
 import 'services/data_sync_service.dart';
 import 'services/game_state_storage.dart';
+import 'services/gemini_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load();
   
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -20,7 +25,16 @@ Future<void> main() async {
   // Initialize Hive for local storage
   await GameStateStorage.initialize();
   
-  runApp(const ProviderScope(child: ImmunoWarriorsApp()));
+  // Initialize Gemini service with API key from .env
+  final geminiApiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+  final geminiService = GeminiService(apiKey: geminiApiKey);
+  
+  runApp(ProviderScope(
+    overrides: [
+      geminiServiceProvider.overrideWithValue(geminiService),
+    ],
+    child: const ImmunoWarriorsApp(),
+  ));
 }
 
 class ImmunoWarriorsApp extends ConsumerWidget {

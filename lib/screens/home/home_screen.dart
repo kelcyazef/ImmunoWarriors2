@@ -34,12 +34,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     null, // Combat (handled via navigation)
   ];
   
+  // PageController for swipe navigation
+  late PageController _pageController;
+  
   // Timer for periodic data sync
   Timer? _syncTimer;
   
   @override
   void initState() {
     super.initState();
+    // Initialize PageController for swipe navigation
+    _pageController = PageController(initialPage: _currentIndex);
     // Set up periodic data sync every 30 seconds
     _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) => _syncDataToFirestore());
   }
@@ -48,6 +53,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     // Cancel timer when widget is disposed
     _syncTimer?.cancel();
+    // Dispose of PageController
+    _pageController.dispose();
     // Final sync when leaving the app
     _syncDataToFirestore();
     super.dispose();
@@ -207,19 +214,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final memoireImmunitaire = ref.watch(memoireImmunitaireProvider);
     final researchPoints = ref.watch(researchPointsProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
-
-    // If a non-dashboard tab is selected (except Attack), show that screen
-    if (_currentIndex > 0 && _currentIndex < 5) {
-      return _screens[_currentIndex]!;
-    }
-
-    // Always show Tactical Dashboard
+    
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Tactical Dashboard'),
-        backgroundColor: navyBlue,
+        backgroundColor: const Color(0xFF0A2342), // Navy blue color constant
         foregroundColor: Colors.white,
         elevation: 1,
         actions: [
@@ -292,72 +291,121 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: userProfileAsync.when(
-        data: (userProfile) => userProfile == null
-            ? const Center(child: Text('User profile not found'))
-            : _buildDashboardContent(context, userProfile, resources, memoireImmunitaire, researchPoints),
+        data: (userProfile) {
+          // Handle null userProfile case
+          if (userProfile == null) {
+            return const Center(child: Text('User profile not found'));
+          }
+          
+          // Prepare screens with Dashboard content
+          final Widget dashboardScreen = _buildDashboardContent(
+              context, userProfile, resources, memoireImmunitaire, researchPoints);
+          
+          // Create a list of all actual screens for the PageView
+          final List<Widget> pageViewScreens = [
+            dashboardScreen,
+            _screens[1] ?? const SizedBox(),
+            _screens[2] ?? const SizedBox(),
+            _screens[3] ?? const SizedBox(),
+            _screens[4] ?? const SizedBox(),
+            // Combat is handled differently, so we'll show a placeholder
+            Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.security, size: 64),
+                const SizedBox(height: 16),
+                const Text('Combat Zone', style: TextStyle(fontSize: 24)),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => _launchCombatScreen(context),
+                  child: const Text('Choisir une base ennemie'),
+                ),
+              ],
+            )),
+          ];
+          
+          // Use PageView for swipe navigation
+          return PageView(
+            controller: _pageController,
+            physics: const PageScrollPhysics(),
+            onPageChanged: (index) {
+              // Update the current index when page changes via swipe
+              if (index != _currentIndex) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              }
+            },
+            children: pageViewScreens,
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (error, stackTrace) => Center(child: Text('Error: $error')),
       ),
-      bottomNavigationBar: Container(
-        height: 70,
-        padding: const EdgeInsets.only(top: 8),
-        color: navyBlue,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildBottomNavItem(Icons.radar, 'Scanner', colorScheme, 1),
-            _buildBottomNavItem(Icons.biotech, 'Bio-Forge', colorScheme, 2),
-            _buildBottomNavItem(Icons.science, 'Labo R&D', colorScheme, 3),
-            _buildBottomNavItem(Icons.menu_book, 'Archives', colorScheme, 4),
-            _buildBottomNavItem(Icons.security, 'Attack', colorScheme, 5),
-
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        backgroundColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: colorScheme.secondary,
+        unselectedItemColor: Colors.grey,
+        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+        unselectedLabelStyle: const TextStyle(fontSize: 11),
+        elevation: 8,
+        onTap: (index) {
+          if (index == 5) {
+            // Handle combat screen separately
+            _launchCombatScreen(context);
+          } else {
+            // Update PageView when BottomNavigationBar is tapped
+            setState(() {
+              _currentIndex = index;
+              // Animate to the selected page
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            });
+          }
+        },
+        items: [
+          _buildBottomNavItem(Icons.dashboard_rounded, 'Dashboard', colorScheme, 0),
+          _buildBottomNavItem(Icons.qr_code_scanner, 'Scanner', colorScheme, 1),
+          _buildBottomNavItem(Icons.biotech, 'BioForge', colorScheme, 2),
+          _buildBottomNavItem(Icons.science, 'Labo', colorScheme, 3),
+          _buildBottomNavItem(Icons.menu_book, 'Archives', colorScheme, 4),
+          _buildBottomNavItem(Icons.security, 'Combat', colorScheme, 5),
+        ],
       ),
     );
   }
 
-  Widget _buildBottomNavItem(IconData icon, String label, ColorScheme colorScheme, int index) {
-    return InkWell(
-      onTap: () {
-        if (index == 5) {
-          // Create a mock target base for quick combat access
-          final mockTargetBase = {
-            'id': 'quick-combat-${DateTime.now().millisecondsSinceEpoch}',
-            'name': 'Base d\'Entraînement',
-            'owner': 'Système',
-            'ownerId': 'system',
-            'threatLevel': 'Facile',
-            'pathogens': ['Influenza Virus', 'Candida Albicans'],
-            'rewards': {'energie': 20, 'biomateriaux': 15, 'points': 5},
-          };
-          
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CombatPreparationScreen(
-                targetBase: mockTargetBase,
-              ),
-            ),
-          );
-          return;
-        } else {
-          setState(() => _currentIndex = index);
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.white70, size: 20),
-          ),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
-        ],
+  BottomNavigationBarItem _buildBottomNavItem(IconData icon, String label, ColorScheme colorScheme, int index) {
+    return BottomNavigationBarItem(
+      icon: Icon(icon),
+      label: label,
+      backgroundColor: _currentIndex == index ? colorScheme.secondary : Colors.grey[400],
+    );
+  }
+
+  void _launchCombatScreen(BuildContext context) {
+    // Create a mock target base for quick combat access
+    final mockTargetBase = {
+      'id': 'quick-combat-${DateTime.now().millisecondsSinceEpoch}',
+      'name': 'Base d\'Entraînement',
+      'owner': 'Système',
+      'ownerId': 'system',
+      'threatLevel': 'Facile',
+      'pathogens': ['Influenza Virus', 'Candida Albicans'],
+      'rewards': {'energie': 20, 'biomateriaux': 15, 'points': 5},
+    };
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CombatPreparationScreen(
+          targetBase: mockTargetBase,
+        ),
       ),
     );
   }

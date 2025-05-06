@@ -7,6 +7,7 @@ import '../../providers/game_providers.dart';
 import '../../providers/firestore_providers.dart';
 import '../../providers/auth_providers.dart';
 import '../../services/data_sync_service.dart';
+import '../../widgets/battle_chronicle_widget.dart';
 import 'microscope_background.dart';
 import 'cell_visualizations.dart';
 
@@ -510,6 +511,45 @@ class CombatResultScreen extends ConsumerWidget {
     required this.playerAntibodies,
     required this.enemyPathogens,
   });
+  
+  // Prepare battle data for Gemini
+  Map<String, dynamic> _prepareBattleData() {
+    // Debug logging
+    print('Preparing battle data for Gemini AI');
+    print('Player antibodies: ${playerAntibodies.map((a) => a.name).toList()}');
+    print('Enemy pathogens: ${enemyPathogens.map((p) => p.name).toList()}');
+    
+    // Create simplified player units data
+    final playerUnitsData = playerAntibodies.map((unit) => {
+      'name': unit.name,
+      'type': unit.runtimeType.toString(),
+      'hp': unit.healthPoints,
+      'damage': unit.damage,
+    }).toList();
+    
+    // Create simplified enemy units data
+    final enemyUnitsData = enemyPathogens.map((unit) => {
+      'name': unit.name,
+      'type': unit.runtimeType.toString(),
+      'hp': unit.healthPoints,
+      'damage': unit.damage,
+    }).toList();
+    
+    // Create significant events from combat log
+    final events = combatResult.combatLog
+        .where((entry) => entry.isSpecialAction || (entry.damage ?? 0) > 20)
+        .map((entry) => entry.message)
+        .toList();
+    
+    return {
+      'playerUnits': playerUnitsData,
+      'enemyUnits': enemyUnitsData,
+      'events': events,
+      'outcome': combatResult.playerVictory ? 'Victory' : 'Defeat',
+      'turns': combatResult.turnsElapsed,
+      'baseName': enemyBaseName,
+    };
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -665,6 +705,34 @@ class CombatResultScreen extends ConsumerWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+          
+          // Gemini AI Battle Chronicle
+          Card(
+            color: Colors.white,
+            elevation: 4,
+            shadowColor: Colors.black.withOpacity(0.1),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Rapports Analytiques IA',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                BattleChronicleWidget(battleData: _prepareBattleData()),
+              ]),
             ),
           ),
           
