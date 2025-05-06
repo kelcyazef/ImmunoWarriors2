@@ -4,8 +4,10 @@ import '../../models/agent_pathogene.dart';
 import '../../models/anticorps.dart';
 import '../../providers/game_providers.dart';
 import '../../models/agent_pathogene_factory.dart' hide Virus, Bacteria, Fungus;
+import '../../models/combat_manager.dart';
 import '../../widgets/tactical_advice_dialog.dart';
-import 'combat_simulation_screen.dart';
+import '../../services/data_sync_service.dart';
+import 'improved_combat_screen.dart';
 
 /// Screen for preparing for combat by selecting antibodies
 class CombatPreparationScreen extends ConsumerWidget {
@@ -358,40 +360,107 @@ class CombatPreparationScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                child: ElevatedButton(
-                  onPressed: canDeploy ? () {
-                    // Print debug info
-                    debugPrint('Deploying antibodies: ${selectedAntibodies.length}');
-                    debugPrint('Enemy pathogens: ${enemyPathogens.length}');
-                    
-                    // Consume resources
-                    resources.consumeEnergie(totalEnergyCost);
-                    resources.consumeBiomateriaux(totalBiomaterialCost);
-                    
-                    // Navigate to combat simulation
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => CombatSimulationScreen(
-                          enemyBaseName: enemyBaseName,
-                          playerAntibodies: List<Anticorps>.from(selectedAntibodies),
-                          enemyPathogens: enemyPathogens,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: ElevatedButton(
+                    onPressed: canDeploy ? () async {
+                      // Print debug info
+                      debugPrint('Deploying antibodies: ${selectedAntibodies.length}');
+                      debugPrint('Enemy pathogens: ${enemyPathogens.length}');
+                      
+                      resources.consumeEnergie(totalEnergyCost);
+                      resources.consumeBiomateriaux(totalBiomaterialCost);
+                      
+                      // Launch the combat simulation with improved visuals
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ImprovedCombatScreen(
+                            enemyBaseName: enemyBaseName,
+                            playerAntibodies: selectedAntibodies,
+                            enemyPathogens: enemyPathogens,
+                          ),
                         ),
-                      ),
-                    );
-                  } : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: navyBlue, // Navy blue color for button
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 0),
-                    disabledBackgroundColor: Colors.grey[300],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text.rich(
-                    TextSpan(
-                      text: 'Déployer les Anticorps',
+                      );
+                      
+                      // Handle combat results
+                      if (result != null && result is CombatResult) {
+                        // Update resources based on combat outcome
+                        if (result.playerVictory) {
+                          // Add rewards for victory (using negative values to add resources)
+                          resources.consumeEnergie(-result.resourcesGained);
+                          resources.consumeBiomateriaux(-result.resourcesGained);
+                          
+                          // Show victory message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Victoire! Vous avez gagné ${result.resourcesGained} d\'énergie et de biomatériaux.',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          
+                          // If player won, remove the enemy base if it has online information
+                          if (targetBase.containsKey('docId')) {
+                            final dataSyncService = ref.read(dataSyncServiceProvider);
+                            dataSyncService.deleteEnemyBase(targetBase['docId']);
+                            debugPrint('Enemy base deleted after defeat: ${targetBase['name']}');
+                          }
+                        } else {
+                          // Show defeat message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Défaite! Vos anticorps ont été vaincus.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                        
+                        // Look for new pathogen signatures
+                        if (result.pathogenIdsDefeated.isNotEmpty) {
+                          // Add to immune memory
+                          final memoireImmunitaire = ref.read(memoireImmunitaireProvider);
+                          int researchPointsEarned = 0;
+                          
+                          for (final id in result.pathogenIdsDefeated) {
+                            final pathogen = enemyPathogens.firstWhere((p) => p.id == id);
+                            if (memoireImmunitaire.addSignature(pathogen.name)) {
+                              researchPointsEarned += 5; // 5 points per new signature
+                            }
+                          }
+                          
+                          if (researchPointsEarned > 0) {
+                            memoireImmunitaire.addResearchPoints(researchPointsEarned);
+                            
+                            // Show research points message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Vous avez gagné $researchPointsEarned points de recherche!',
+                                ),
+                                backgroundColor: Colors.purple,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    } : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: navyBlue, // Navy blue color for button
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      minimumSize: const Size(double.infinity, 0),
+                      disabledBackgroundColor: Colors.grey[300],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    child: const Text.rich(
+                      TextSpan(
+                        text: 'Déployer les Anticorps',
+                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
                 ),
               ),

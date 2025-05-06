@@ -4,6 +4,35 @@ import 'agent_pathogene.dart';
 import 'anticorps.dart';
 import 'memoire_immunitaire.dart';
 
+/// Result of a single turn of combat
+class TurnResult {
+  final bool isCombatActive;
+  final List<CombatLogEntry> newLogEntries;
+  final List<CombatUnit> deadUnits;
+  final bool combatEnded;
+  
+  TurnResult({
+    required this.isCombatActive,
+    required this.newLogEntries,
+    List<CombatUnit>? deadUnits,
+    this.combatEnded = false,
+  }) : this.deadUnits = deadUnits ?? [];
+  
+  List<CombatLogEntry> get logEntries => newLogEntries;
+}
+
+/// Combat action types for combat log entries
+enum CombatAction {
+  attack,
+  death,
+  special,
+  heal,
+  buff,
+  debuff,
+  start,
+  end
+}
+
 /// Combat log entry for recording battle events
 class CombatLogEntry {
   final String message;
@@ -13,6 +42,7 @@ class CombatLogEntry {
   final int? damage;
   final int? healing;
   final bool isSpecialAction;
+  final CombatAction action;
   
   CombatLogEntry({
     required this.message,
@@ -21,6 +51,7 @@ class CombatLogEntry {
     this.damage,
     this.healing,
     this.isSpecialAction = false,
+    this.action = CombatAction.attack,
   }) : timestamp = DateTime.now();
   
   Map<String, dynamic> toMap() {
@@ -32,8 +63,15 @@ class CombatLogEntry {
       'damage': damage,
       'healing': healing,
       'isSpecialAction': isSpecialAction,
+      'action': action.toString(),
     };
   }
+  
+  // Getters for improved combat screen
+  String get actingUnitName => actorId?.split('_').last ?? 'Unknown';
+  String get targetUnitName => targetId?.split('_').last ?? 'Unknown';
+  int get value => damage ?? healing ?? 0;
+  bool get isPlayerAction => actorId?.startsWith('antibody_') ?? false;
   
   factory CombatLogEntry.fromMap(Map<String, dynamic> map) {
     return CombatLogEntry(
@@ -130,6 +168,10 @@ class CombatUnit {
   int get initiative => unit.initiative;
   bool get isDefeated => unit.isDefeated;
   
+  // Additional getters for health-related properties
+  int get currentHealth => healthPoints;
+  int get maxHealth => maxHealthPoints;
+  
   bool get isAnticorps => unit is Anticorps;
   bool get isPathogene => unit is AgentPathogene;
 }
@@ -138,6 +180,7 @@ class CombatUnit {
 class CombatManager with ChangeNotifier {
   List<CombatUnit> _combatUnits = [];
   List<CombatLogEntry> _combatLog = [];
+  List<CombatLogEntry> _lastTurnLogs = []; // Track logs from the current turn
   int _currentTurn = 0;
   bool _isPlayerTurn = false;
   bool _isCombatActive = false;
@@ -199,13 +242,20 @@ class CombatManager with ChangeNotifier {
   /// Execute automatic combat simulation
   Future<CombatResult> simulateCombat() async {
     if (!_isCombatActive) {
-      throw Exception('Cannot simulate combat: no active combat');
+      throw Exception('Combat not active. Call startCombat first.');
     }
     
-    // Maximum number of turns to prevent infinite loops
-    const maxTurns = 50;
+    _addLogEntry('Combat begins!');
     
+    // Maximum number of turns (for safety)
+    final maxTurns = 25;
+    
+    // Simulate until combat ends or max turns reached
     while (_isCombatActive && _currentTurn < maxTurns) {
+      _currentTurn++;
+      _addLogEntry('Turn $_currentTurn begins', isSpecialAction: true);
+      _lastTurnLogs = [];
+      
       // Process each unit's turn in initiative order
       for (final unit in _combatUnits) {
         if (unit.isDefeated) continue;
@@ -712,14 +762,87 @@ class CombatManager with ChangeNotifier {
     int? damage,
     int? healing,
     bool isSpecialAction = false,
+    CombatAction action = CombatAction.attack,
   }) {
-    _combatLog.add(CombatLogEntry(
+    final entry = CombatLogEntry(
       message: message,
       actorId: actorId,
       targetId: targetId,
       damage: damage,
       healing: healing,
       isSpecialAction: isSpecialAction,
-    ));
+      action: action,
+    );
+    
+    _combatLog.add(entry);
+    _lastTurnLogs.add(entry); // Also track in current turn logs
+  }
+  
+  /// Process a single turn of combat for turn-by-turn animation
+  Future<TurnResult> processTurn() async {
+    if (!_isCombatActive) {
+      return TurnResult(
+        isCombatActive: false,
+        newLogEntries: const [],
+        deadUnits: const [],
+        combatEnded: true,
+      );
+    }
+    
+    // Clear last turn logs
+    _lastTurnLogs = [];
+    
+    // Start new turn
+    _currentTurn++;
+    _addLogEntry('Turn $_currentTurn begins', isSpecialAction: true, action: CombatAction.start);
+    
+    // Process one unit at a time in order of initiative
+    final sortedUnits = List.from(_combatUnits)..sort((a, b) => b.initiative.compareTo(a.initiative));
+    
+    // Track units that died this turn
+    bool combatEndedThisTurn = false;
+    
+    for (final unit in sortedUnits) {
+      if (!_isCombatActive) break;
+      
+      // Skip defeated units
+      if (unit.isDefeated) continue;
+      
+      // Process turn based on unit type
+      if (unit.isPlayerUnit) {
+        _processPlayerUnitTurn(unit);
+      } else {
+        _processEnemyUnitTurn(unit);
+      }
+      
+      // Check for combat end conditions
+      final allPlayersDead = _combatUnits.where((unit) => unit.isPlayerUnit).every((unit) => unit.isDefeated);
+      final allEnemiesDead = _combatUnits.where((unit) => !unit.isPlayerUnit).every((unit) => unit.isDefeated);
+      
+      if (allPlayersDead || allEnemiesDead) {
+        _endCombat();
+        combatEndedThisTurn = true;
+        break;
+      }
+    }
+    
+    // Collect units that died this turn
+    final deadUnits = _combatUnits.where((unit) => unit.isDefeated).toList();
+    
+    // Return logs from this turn
+    return TurnResult(
+      isCombatActive: _isCombatActive,
+      newLogEntries: List.unmodifiable(_lastTurnLogs),
+      deadUnits: deadUnits,
+      combatEnded: combatEndedThisTurn,
+    );
+  }
+  
+  /// Finalize combat and get results
+  CombatResult finalizeCombat() {
+    if (_isCombatActive) {
+      _endCombat();
+    }
+    return _calculateCombatResult();
   }
 }

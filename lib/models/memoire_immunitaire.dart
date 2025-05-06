@@ -154,6 +154,38 @@ class MemoireImmunitaire with ChangeNotifier {
     }
   }
   
+  /// Add a signature from a string name and return whether it was newly added
+  /// Returns true if a new signature was added, false if it already existed
+  bool addSignature(String pathogenName) {
+    // Check if already present by name
+    if (_signatures.any((sig) => sig.pathogenName == pathogenName)) {
+      return false; // Already exists
+    }
+    
+    // Create a basic signature with default values
+    final signature = PathogenSignature(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      pathogenId: 'sync_${DateTime.now().millisecondsSinceEpoch}',
+      pathogenName: pathogenName,
+      pathogenType: _determineTypeFromName(pathogenName),
+      attackType: AttackType.physical, // Default
+      resistanceFactors: {
+        AttackType.physical: 1.0,
+        AttackType.chemical: 1.0,
+        AttackType.energetic: 1.0,
+      },
+      discoveryDate: DateTime.now(),
+    );
+    
+    _signatures.add(signature);
+    
+    // Award research points for new discovery
+    _researchPoints += 5;
+    
+    notifyListeners();
+    return true; // New signature added
+  }
+  
   /// Determine pathogen type from name
   String _determineTypeFromName(String name) {
     if (name.contains('Virus')) return 'Virus';

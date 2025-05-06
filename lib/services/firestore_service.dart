@@ -327,6 +327,20 @@ class FirestoreService {
         .delete();
   }
   
+  /// Delete a document from a specific collection
+  Future<void> deleteDocument(String collection, String documentId) async {
+    try {
+      await _firestore
+          .collection(collection)
+          .doc(documentId)
+          .delete();
+      print('Document deleted: $collection/$documentId');
+    } catch (e) {
+      print('Error deleting document: $e');
+      rethrow;
+    }
+  }
+  
   // Generate system bases when not enough user bases are available
   List<Map<String, dynamic>> _generateSystemBases() {
     final threatLevels = ['Facile', 'Modéré', 'Difficile'];

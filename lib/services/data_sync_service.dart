@@ -225,6 +225,26 @@ class DataSyncService {
     // Then try to sync with Firestore
     await syncToFirestore();
   }
+  
+  /// Delete enemy base from Firestore after defeating it
+  Future<void> deleteEnemyBase(String docId) async {
+    try {
+      final authState = ref.read(authStateProvider);
+      final currentUser = authState.value;
+      
+      // Check if user is logged in
+      if (currentUser == null) {
+        print('Cannot delete enemy base: User not logged in');
+        return;
+      }
+      
+      final firestoreService = ref.read(firestoreServiceProvider);
+      await firestoreService.deleteDocument('enemy_bases', docId);
+      print('Enemy base deleted from Firestore: $docId');
+    } catch (e) {
+      print('Error deleting enemy base: $e');
+    }
+  }
 }
 
 final dataSyncServiceProvider = Provider<DataSyncService>((ref) {

@@ -92,20 +92,40 @@ class TacticalAdviceDialog extends ConsumerWidget {
           loading: () {
             print('Currently showing loading state');
             
+            // Store a flag to track if this widget is still in use
+            bool isActive = true;
+            
             // Add a timer to automatically show fallback after 2 seconds
             Future.delayed(const Duration(seconds: 2), () {
-              // Check if we're still mounted and in loading state
-              if (adviceAsync is AsyncLoading && context.mounted) {
-                print('Still loading after 2s, showing fallback...');
-                // Try to invalidate provider to stop loading
-                ref.invalidate(tacticalAdviceProvider(data));
-                // Show fallback
-                Navigator.of(context).pop();
-                if (context.mounted) {
-                  showDialog(
-                    context: context, 
-                    builder: (_) => _buildFallbackAdvice(context),
-                  );
+              // Only proceed if the widget is still active and context is mounted
+              if (isActive && context.mounted) {
+                try {
+                  print('Still loading after 2s, showing fallback...');
+                  // First invalidate the provider to cancel any ongoing requests
+                  ref.invalidate(tacticalAdviceProvider(data));
+                  
+                  // Only try to navigate if context is still mounted
+                  if (context.mounted) {
+                    // Use a try-catch to handle any navigation errors safely
+                    try {
+                      Navigator.of(context).pop();
+                      // Set flag to false after popping
+                      isActive = false;
+                      
+                      // Only show new dialog if context is still valid
+                      if (context.mounted) {
+                        showDialog(
+                          context: context, 
+                          builder: (ctx) => _buildFallbackAdvice(ctx),
+                        );
+                      }
+                    } catch (e) {
+                      print('Navigation error: $e');
+                      // The dialog might already be closed
+                    }
+                  }
+                } catch (e) {
+                  print('Error in auto-fallback: $e');
                 }
               }
             });
@@ -121,11 +141,22 @@ class TacticalAdviceDialog extends ConsumerWidget {
                   TextButton(
                     onPressed: () {
                       // Force showing fallback advice if user clicks
-                      Navigator.of(context).pop();
-                      showDialog(
-                        context: context,
-                        builder: (_) => _buildFallbackAdvice(context),
-                      );
+                      if (context.mounted) {
+                        try {
+                          // Mark as not active before navigation
+                          isActive = false;
+                          Navigator.of(context).pop();
+                          
+                          if (context.mounted) {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => _buildFallbackAdvice(ctx),
+                            );
+                          }
+                        } catch (e) {
+                          print('Skip waiting error: $e');
+                        }
+                      }
                     },
                     child: const Text('Skip Waiting'),
                   ),
@@ -160,11 +191,21 @@ class TacticalAdviceDialog extends ConsumerWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Safely close dialog with mounted check
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Safely close dialog with mounted check
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           child: const Text('Understood'),
         ),
       ],
@@ -197,7 +238,12 @@ class TacticalAdviceDialog extends ConsumerWidget {
       ),
       actions: [
         ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Safely close dialog with mounted check
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           child: const Text('Close'),
         ),
       ],
@@ -246,11 +292,21 @@ class TacticalAdviceDialog extends ConsumerWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Safely close dialog with mounted check
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           child: const Text('Close'),
         ),
         ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Safely close dialog with mounted check
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           child: const Text('Understood'),
         ),
       ],
