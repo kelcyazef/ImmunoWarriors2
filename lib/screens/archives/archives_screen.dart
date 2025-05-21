@@ -302,20 +302,9 @@ class ArchivesScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final memoireImmunitaire = ref.watch(memoireImmunitaireProvider);
     final userProfile = ref.watch(userProfileProvider);
-    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
     
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-        ),
-        title: const Text('Archives & Mémoire Immunitaire'),
-        backgroundColor: navyBlue,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
-      ),
+      appBar: null, // Removed AppBar, will use HomeScreen's AppBar
       body: userProfile.when(
         data: (profile) {
           // Watch the battle history provider

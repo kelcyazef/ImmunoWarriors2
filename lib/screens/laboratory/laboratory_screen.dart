@@ -15,46 +15,10 @@ class LaboratoryScreen extends ConsumerWidget {
     final laboratoire = ref.watch(laboratoireRechercheProvider);
     final researchPoints = ref.watch(researchPointsProvider);
     final activeResearch = ref.watch(activeResearchProvider);
-    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
     
     return Scaffold(
       backgroundColor: Colors.white, // White background
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-        ),
-        title: const Text('Laboratoire R&D'),
-        backgroundColor: navyBlue,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
-        actions: [
-          // Info button to show laboratory purpose
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Laboratoire de Recherche'),
-                  content: const Text(
-                    'Le Laboratoire R&D vous permet de rechercher de nouvelles technologies pour améliorer vos anticorps, '
-                    'augmenter votre production de ressources, renforcer votre immunité et développer votre Bio-Forge.\n\n'
-                    'Dépensez vos points de recherche pour débloquer des avantages stratégiques contre les agents pathogènes.'
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Compris'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: null, // Removed AppBar, will use HomeScreen's AppBar
       body: userProfileAsync.when(
         data: (userProfile) => _buildLaboratoryContent(
           context, 

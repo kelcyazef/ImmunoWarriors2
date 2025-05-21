@@ -12,20 +12,10 @@ class ScannerScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userProfileAsync = ref.watch(userProfileProvider);
-    final navyBlue = const Color(0xFF0A2342); // Navy blue color constant
     
     return Scaffold(
       backgroundColor: Colors.white, // White background
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-        ),
-        title: const Text('Scanner'),
-        backgroundColor: navyBlue, // Navy blue for app bar
-        foregroundColor: Colors.white,
-        elevation: 1,
-      ),
+      appBar: null, // Removed AppBar, will use HomeScreen's AppBar
       body: userProfileAsync.when(
         data: (userProfile) => _buildScannerContent(context, userProfile, ref),
         loading: () => const Center(child: CircularProgressIndicator()),

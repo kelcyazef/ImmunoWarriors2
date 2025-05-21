@@ -37,6 +37,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // PageController for swipe navigation
   late PageController _pageController;
   
+  // Titles for each page
+  final List<String> _pageTitles = [
+    "Tactical Dashboard",
+    "Scanner",
+    "Bio-Forge",
+    "Laboratoire R&D",
+    "Archives & Mémoire Immunitaire",
+    "Combat Zone"
+  ];
+  
   // Timer for periodic data sync
   Timer? _syncTimer;
   
@@ -217,7 +227,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tactical Dashboard'),
+        leading: _currentIndex != 0
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () {
+                  setState(() {
+                    _currentIndex = 0;
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  });
+                },
+              )
+            : null,
+        title: Text(_pageTitles[_currentIndex]),
         backgroundColor: const Color(0xFF0A2342), // Navy blue color constant
         foregroundColor: Colors.white,
         elevation: 1,

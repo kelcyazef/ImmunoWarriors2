@@ -80,17 +80,7 @@ class _BioForgeScreenState extends ConsumerState<BioForgeScreen> {
     
     return Scaffold(
       backgroundColor: Colors.white, // White background
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false),
-        ),
-        title: const Text('Bio-Forge'),
-        backgroundColor: navyBlue, // Navy blue app bar
-        foregroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
-      ),
+      appBar: null, // Removed AppBar, will use HomeScreen's AppBar
       body: userProfileAsync.when(
         data: (userProfile) {
           // Calculate base deployment cost
