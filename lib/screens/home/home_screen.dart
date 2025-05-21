@@ -37,14 +37,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // PageController for swipe navigation
   late PageController _pageController;
   
-  // Titles for each page
+  // Titles for each page view
   final List<String> _pageTitles = [
-    "Tactical Dashboard",
-    "Scanner",
+    "Tableau de Bord",
+    "Scanner IA",
     "Bio-Forge",
-    "Laboratoire R&D",
-    "Archives & Mémoire Immunitaire",
-    "Combat Zone"
+    "Laboratoire",
+    "Archives"
   ];
   
   // Timer for periodic data sync
@@ -219,31 +218,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final userProfileAsync = ref.watch(userProfileProvider);
     final resources = ref.watch(resourcesProvider);
     final memoireImmunitaire = ref.watch(memoireImmunitaireProvider);
     final researchPoints = ref.watch(researchPointsProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    const navyBlue = Color(0xFF0A2342); // Navy blue color constant
+
+    // This part combines the loading states of multiple providers
+    if (userProfileAsync.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Handling errors from any of the providers
+    // You can expand this to show specific error messages if needed
+    if (userProfileAsync.hasError) {
+      return Scaffold(body: Center(child: Text('Error loading data: ${userProfileAsync.error}')));
+    }
+
+    // Assuming all data is loaded successfully
+    final userProfile = userProfileAsync.value!;
     
     return Scaffold(
       appBar: AppBar(
-        leading: _currentIndex != 0
+        leading: _currentIndex != 0 && _currentIndex < _pageTitles.length
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () {
                   setState(() {
-                    _currentIndex = 0;
-                    _pageController.animateToPage(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
+                    _currentIndex = 0; // Navigate back to Dashboard
+                    if (_pageController.hasClients) {
+                       _pageController.animateToPage(
+                         0,
+                         duration: const Duration(milliseconds: 300),
+                         curve: Curves.easeInOut,
+                       );
+                    }
                   });
                 },
               )
-            : null,
-        title: Text(_pageTitles[_currentIndex]),
-        backgroundColor: const Color(0xFF0A2342), // Navy blue color constant
+            : null, // No leading icon on the Dashboard itself or if index is out of bounds for titles
+        title: Text(
+          _currentIndex < _pageTitles.length 
+            ? _pageTitles[_currentIndex] 
+            : 'ImmunoWarriors', // Fallback title
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)
+        ),
+        backgroundColor: navyBlue, // Navy blue color constant
         foregroundColor: Colors.white,
         elevation: 1,
         actions: [
